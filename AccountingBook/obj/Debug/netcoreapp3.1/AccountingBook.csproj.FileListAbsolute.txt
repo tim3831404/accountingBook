@@ -46,3 +46,10 @@ D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.cspr
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.dll
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.pdb
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.genruntimeconfig.cache
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\AccountingBook.xml
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Microsoft.OpenApi.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Swashbuckle.AspNetCore.Swagger.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Swashbuckle.AspNetCore.SwaggerGen.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Swashbuckle.AspNetCore.SwaggerUI.dll
+D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.MvcApplicationPartsAssemblyInfo.cs
+D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.xml
