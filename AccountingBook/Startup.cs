@@ -1,8 +1,10 @@
 using AccountingBook.Interfaces;
 using AccountingBook.Repository;
 using AccountingBook.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,10 +33,12 @@ namespace AccountingBook
         {
             services.AddControllersWithViews();
             services.AddSwaggerGen();
+            services.AddHttpClient<StockPriceUpdaterService>();
             services.AddScoped<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
             services.AddScoped<IUserStockRepository, UserStockRepository>();
             services.AddScoped<IUserStockService, UserStockService>();
-            
+            services.AddScoped<StockService>();
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -55,8 +59,9 @@ namespace AccountingBook
 
             app.UseRouting();
 
+          
             app.UseAuthorization();
-
+        
             
 
             app.UseEndpoints(endpoints =>
@@ -71,6 +76,8 @@ namespace AccountingBook
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Your API V1");
             });
+
+
 
         }
     }

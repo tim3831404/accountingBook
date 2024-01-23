@@ -53,3 +53,4 @@ D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Swashbuckle.AspNetC
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Swashbuckle.AspNetCore.SwaggerUI.dll
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.MvcApplicationPartsAssemblyInfo.cs
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\netcoreapp3.1\AccountingBook.xml
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\netcoreapp3.1\Newtonsoft.Json.dll
