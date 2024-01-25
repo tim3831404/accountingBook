@@ -4,7 +4,7 @@
     {
         public string tv { get; set; }
         public string ps { get; set; }
-        public string pz { get; set; }
+        public decimal pz { get; set; }
         public string bp { get; set; }
         public string fv { get; set; }
         public string oa { get; set; }
