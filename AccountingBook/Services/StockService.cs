@@ -8,31 +8,31 @@ using System.Text;
 using AccountingBook.Models;
 using Newtonsoft.Json;
 using System.Linq;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AccountingBook.Services
 {
     public class StockService
     {
-        //readonly private IStockRepository _stockRepository;
-        //public StockService(IStockRepository stockRepository)
-        //{
-        //    _stockRepository = stockRepository;
-        //}
+        readonly private IStockRepository _stockRepository;
+        public StockService(IStockRepository stockRepository)
+        {
+            _stockRepository = stockRepository;
+        }
 
-        //public Dictionary<int, string> GetTodayClosingPrices()
+        //public void UpdateTodayClosingPrices()
         //{
-        //    Dictionary<int, string> ClosingPrices = new Dictionary<int, string>();
         //    try
         //    {
-        //        IEnumerable<int> StockIds = (IEnumerable<int>)_stockRepository.GetAllStocksIdAsync();
+        //        IEnumerable<int> stockIds = _stockRepository.GetAllStocksIdAsync();
 
-        //        foreach (int StockId in StockIds)
+        //        foreach (int stockId in stockIds)
         //        {
         //            // 调用获取实时股价的方法
-        //            string closingPrice = GetClosingPriceForStock(StockId);
+        //            decimal closingPrice = GetClosingPriceForStock(stockId);
 
-        //            // 将结果添加到字典中
-        //            ClosingPrices.Add(StockId, closingPrice);
+        //            // 更新股票的今日收盘价
+        //            _stockRepository.UpdateStockClosingPrice(stockId, closingPrice);
         //        }
         //    }
         //    catch (Exception ex)
@@ -40,9 +40,9 @@ namespace AccountingBook.Services
         //        // 处理异常，可以记录日志或者进行其他处理
         //        Console.WriteLine($"發生異常: {ex.Message}");
         //    }
-
-        //    return ClosingPrices;
         //}
+
+
 
 
 
@@ -58,27 +58,38 @@ namespace AccountingBook.Services
             {
                 wClient.Encoding = Encoding.UTF8;
 
-                
+
                 string downloadedTseData = wClient.DownloadString(urlTse);
 
-                string jsonDataSuccess = "Your JSON string for success response";
-                string jsonDataError = "Your JSON string for error response";
-                StockInfoResponse stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(jsonDataSuccess);
+
+                StockInfoResponse stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedTseData);
                 if (stockInfoResponse.msgArray != null && stockInfoResponse.msgArray.Any())
                 {
-                    return downloadedTseData;
+                    foreach (var stockInfoItem in stockInfoResponse.msgArray)
+                    {
+                        return $"股票代碼: {stockInfoItem.c}, 收盤價: {stockInfoItem.pz}";
+                    }
+
                 }
 
-         
-                
+
+
                 else
                 {
                     string downloadedOtcData = wClient.DownloadString(urlOtc);
-                    return downloadedOtcData;
+                    stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedOtcData);
+
+
+                    foreach (var stockInfoItem in stockInfoResponse.msgArray)
+                    {
+                        return $"股票代碼: {stockInfoItem.c}, 收盤價: {stockInfoItem.pz}";
+                    }
                 }
+
+                return "1.不屬於上市或上櫃 2.代碼輸入錯誤";
             }
 
-            return "這支股票不屬於上市或者上櫃";
+
         }
 
     }

@@ -5,6 +5,6 @@
         public int StockId { get; set; }
         public string StockCode { get; set; }
         public string StockName { get; set; }
-        public decimal NowPrice { get; set; }
+        public decimal ClosingPrice { get; set; }
     }
 }

@@ -15,7 +15,7 @@ namespace AccountingBook.Repository
             _dbConnection = dbConnection;
         }
 
-        public async Task<IEnumerable<Stocks>> GetAllStocksIdAsync()
+        public async Task<IEnumerable<Stocks>> GetAllStocksAsync()
         {
             return await _dbConnection.QueryAsync<Stocks>("SELECT * FROM Stocks");
         }
