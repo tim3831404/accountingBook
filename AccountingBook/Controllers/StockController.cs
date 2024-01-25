@@ -13,10 +13,10 @@ namespace AccountingBook.Controllers
             _stockService = stockService;
         }
         [HttpGet("{id}")]
-        public IActionResult Get(int id) 
+        public IActionResult Get(int id)
         {
             var result = _stockService.GetClosingPriceForStock(id);
-            if (result == null) 
+            if (result == null)
             {
                 return NotFound("找不到資源");
             }

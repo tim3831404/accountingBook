@@ -22,31 +22,31 @@ namespace AccountingBook.Services
 
         //public void UpdateTodayClosingPrices()
         //{
-        //    try
-        //    {
-        //        IEnumerable<int> stockIds = _stockRepository.GetAllStocksIdAsync();
+            //try
+            //{
+            //    IEnumerable<int> stockIds = _stockRepository.GetAllStocksAsync();
 
-        //        foreach (int stockId in stockIds)
-        //        {
-        //            // 调用获取实时股价的方法
-        //            decimal closingPrice = GetClosingPriceForStock(stockId);
+            //    foreach (int stockId in stockIds)
+            //    {
+            //        // 调用获取实时股价的方法
+            //        decimal closingPrice = GetClosingPriceForStock(stockId);
 
-        //            // 更新股票的今日收盘价
-        //            _stockRepository.UpdateStockClosingPrice(stockId, closingPrice);
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        // 处理异常，可以记录日志或者进行其他处理
-        //        Console.WriteLine($"發生異常: {ex.Message}");
-        //    }
+            //        // 更新股票的今日收盘价
+            //        _stockRepository.UpdateStockClosingPrice(stockId, closingPrice);
+            //    }
+            //}
+            //catch (Exception ex)
+            //{
+            //    // 处理异常，可以记录日志或者进行其他处理
+            //    Console.WriteLine($"發生異常: {ex.Message}");
+            //}
         //}
 
 
 
 
 
-        public string GetClosingPriceForStock(int StockId)
+    public string GetClosingPriceForStock(int StockId)
         {
             string tseCode = "tse_" + StockId + ".tw";
             string otcCode = "otc_" + StockId + ".tw";

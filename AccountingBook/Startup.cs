@@ -33,11 +33,13 @@ namespace AccountingBook
         {
             services.AddControllersWithViews();
             services.AddSwaggerGen();
-            services.AddHttpClient<StockService>();
+            //services.AddHttpClient<StockService>();
             services.AddScoped<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
             services.AddScoped<IUserStockRepository, UserStockRepository>();
             services.AddScoped<IUserStockService, UserStockService>();
+            services.AddScoped<IStockRepository, StockRepository>();
             services.AddScoped<StockService>();
+
 
         }
 
