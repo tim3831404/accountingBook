@@ -11,52 +11,43 @@ using Microsoft.Extensions.Hosting;
 using System.Threading;
 using System.Data.SqlClient;
 using Dapper;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AccountingBook.Services
 {
     public class UpdateClosingPriceService : BackgroundService
     {
         private Timer _timer;
-        public IStockRepository _stockRepository;
+        private readonly IServiceProvider _serviceProvider;
         private readonly IHttpClientFactory _httpClientFactory;
-
         public UpdateClosingPriceService(
-                            IStockRepository stockRepository,
+                            IServiceProvider serviceProvider,
                             IHttpClientFactory httpClientFactory
                             )
         {
-            _stockRepository = stockRepository;
+            _serviceProvider = serviceProvider;
             _httpClientFactory = httpClientFactory;
         }
-
-
-
-
         public override Task StartAsync(CancellationToken stoppingToken)
         {
             _timer = new Timer(UpdateStockPriceAtSpecificTime, null, TimeSpan.Zero, TimeSpan.FromMinutes(1)); // Adjust the interval as needed
             return base.StartAsync(stoppingToken);
         }
-
         public override Task StopAsync(CancellationToken stoppingToken)
         {
             _timer?.Change(Timeout.Infinite, 0);
             return base.StopAsync(stoppingToken);
         }
-
         private async void UpdateStockPriceAtSpecificTime(object state)
         {
             var currentTime = DateTime.Now.TimeOfDay;
-
             // Run the update only at 13:30 PM
-            if (currentTime.Hours == 13 && currentTime.Minutes == 30)
+            if (currentTime.Hours >= 13)
             {
                 // Call your update method here
                 await UpdateStockPricesAsync();
             }
         }
-
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Implement your background service logic here
@@ -66,74 +57,76 @@ namespace AccountingBook.Services
                 await Task.Delay(1000, stoppingToken); // Adjust the delay as needed
             }
         }
-
-
-
         public async Task UpdateStockPricesAsync()
         {
             try
             {
-                // 取得所有股票
-                var allStocks = await _stockRepository.GetAllStocksAsync();
-
-                foreach (var stock in allStocks)
+                using (var scope = _serviceProvider.CreateScope())
                 {
-                    // 替換成實際的第三方 API 網址
-                    string tseCode = "tse_" + stock.StockCode + ".tw";
-                    string otcCode = "otc_" + stock.StockCode + ".tw";
-                    string urlTse = $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch={tseCode}";
-                    string urlOtc = $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch={otcCode}";
+                    var stockRepository = scope.ServiceProvider.GetRequiredService<IStockRepository>();
 
-                    using (WebClient wClient = new WebClient())
+                    // 取得所有股票
+                    var allStocks = await stockRepository.GetAllStocksAsync();
+
+                    foreach (var stock in allStocks)
                     {
-                        wClient.Encoding = Encoding.UTF8;
-                        string downloadedTseData = wClient.DownloadString(urlTse);
-                        StockInfoResponse stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedTseData);
-                        String apiUrl = "";
-                        if (stockInfoResponse.msgArray != null && stockInfoResponse.msgArray.Any())
+                        // 替換成實際的第三方 API 網址
+                        string tseCode = "tse_" + stock.StockCode + ".tw";
+                        string otcCode = "otc_" + stock.StockCode + ".tw";
+                        string urlTse = $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch={tseCode}";
+                        string urlOtc = $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch={otcCode}";
+
+                        using (WebClient wClient = new WebClient())
                         {
-                            apiUrl = urlTse;
-                        }
-                        else
-                        {
-                            string downloadedOtcData = wClient.DownloadString(urlOtc);
-                            stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedOtcData);
-                            apiUrl = urlOtc;
-                        }
-                        using (var httpClient = _httpClientFactory.CreateClient())
-                        {
-                            var response = await httpClient.GetAsync(apiUrl);
-                            if (response.IsSuccessStatusCode)
+                            wClient.Encoding = Encoding.UTF8;
+                            string downloadedTseData = wClient.DownloadString(urlTse);
+                            StockInfoResponse stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedTseData);
+                            String apiUrl = "";
+                            if (stockInfoResponse.msgArray != null && stockInfoResponse.msgArray.Any())
                             {
-                                var newPrice = stockInfoResponse.msgArray[0].pz;
-
-                                // 更新股票價格
-                                stock.ClosingPrice = newPrice;
-
-                                // 使用 Dapper 更新資料庫中的 ClosingPrice
-                                using (var connection = new SqlConnection("StockDatabase"))
-                                {
-                                    connection.Open();
-
-                                    var affectedRows = await connection.ExecuteAsync(
-                                        "UPDATE Stocks SET ClosingPrice = @ClosingPrice WHERE StockId = @StockId",
-                                        new { ClosingPrice = newPrice, StockId = stock.StockId });
-
-                                    if (affectedRows > 0)
-                                    {
-                                        // 更新成功，你可以進行相關的操作
-                                    }
-                                    else
-                                    {
-                                        // 更新失敗，處理失敗的情況
-                                    }
-                                }
+                                apiUrl = urlTse;
                             }
-
-
                             else
                             {
-                                // 處理 API 請求失敗的情況
+                                string downloadedOtcData = wClient.DownloadString(urlOtc);
+                                stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedOtcData);
+                                apiUrl = urlOtc;
+                            }
+
+                            using (var httpClient = _httpClientFactory.CreateClient())
+                            {
+                                var response = await httpClient.GetAsync(apiUrl);
+
+                                if (response.IsSuccessStatusCode)
+                                {
+                                    var newPrice = stockInfoResponse.msgArray[0].pz;
+
+                                    // 更新股票價格
+                                    stock.ClosingPrice = newPrice;
+
+                                    // 使用 Dapper 更新資料庫中的 ClosingPrice
+                                    using (var connection = new SqlConnection("StockDatabase"))
+                                    {
+                                        connection.Open();
+
+                                        var affectedRows = await connection.ExecuteAsync(
+                                            "UPDATE Stocks SET ClosingPrice = @ClosingPrice WHERE StockId = @StockId",
+                                            new { ClosingPrice = newPrice, StockId = stock.StockId });
+
+                                        if (affectedRows > 0)
+                                        {
+                                            // 更新成功，你可以進行相關的操作
+                                        }
+                                        else
+                                        {
+                                            // 更新失敗，處理失敗的情況
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    // 處理 API 請求失敗的情況
+                                }
                             }
                         }
                     }
@@ -144,6 +137,5 @@ namespace AccountingBook.Services
                 // 處理例外狀況
             }
         }
-
     }
 }

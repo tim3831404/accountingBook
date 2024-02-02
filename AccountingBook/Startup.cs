@@ -37,9 +37,9 @@ namespace AccountingBook
             services.AddScoped<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
             services.AddScoped<IUserStockRepository, UserStockRepository>();
             services.AddScoped<IUserStockService, UserStockService>();
-            services.AddSingleton<IStockRepository, StockRepository>();
+            services.AddScoped<IStockRepository, StockRepository>();
             services.AddScoped<StockService>();
-            services.AddHostedService<UpdateClosingPriceService>();
+            services.AddScoped<UpdateClosingPriceService>();
 
 
         }
