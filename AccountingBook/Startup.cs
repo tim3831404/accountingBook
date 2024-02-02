@@ -32,6 +32,7 @@ namespace AccountingBook
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllersWithViews();
+            services.AddLogging();
             services.AddSwaggerGen();
             services.AddHttpClient();
             services.AddScoped<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));

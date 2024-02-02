@@ -12,25 +12,46 @@ using System.Threading;
 using System.Data.SqlClient;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace AccountingBook.Services
 {
     public class UpdateClosingPriceService : BackgroundService
     {
+        private readonly ILogger<UpdateClosingPriceService> _logger;
+        private readonly IConfiguration _configuration;
         private Timer _timer;
         private readonly IServiceProvider _serviceProvider;
         private readonly IHttpClientFactory _httpClientFactory;
         public UpdateClosingPriceService(
                             IServiceProvider serviceProvider,
-                            IHttpClientFactory httpClientFactory
+                            IHttpClientFactory httpClientFactory,
+                            ILogger<UpdateClosingPriceService> logger,
+                            IConfiguration configuration
                             )
         {
             _serviceProvider = serviceProvider;
             _httpClientFactory = httpClientFactory;
+            _logger = logger;
+            _configuration = configuration;
         }
         public override Task StartAsync(CancellationToken stoppingToken)
         {
-            _timer = new Timer(UpdateStockPriceAtSpecificTime, null, TimeSpan.Zero, TimeSpan.FromMinutes(1)); // Adjust the interval as needed
+            //_timer = new Timer(UpdateStockPriceAtSpecificTime, null, TimeSpan.Zero, TimeSpan.FromMinutes(1)); // Adjust the interval as needed
+            //return base.StartAsync(stoppingToken);
+
+            var now = DateTime.Now;
+            var nextRunTime = new DateTime(now.Year, now.Month, now.Day, 16, 1, 0);
+            if (now > nextRunTime)
+            {
+                nextRunTime = nextRunTime.AddDays(1); // 如果當前時間已經超過 13:30，則將下次運行時間設為明天的 13:30
+            }
+
+            var delay = nextRunTime - now;
+
+            _timer = new Timer(UpdateStockPriceAtSpecificTime, null, delay, TimeSpan.FromHours(1));
+
             return base.StartAsync(stoppingToken);
         }
         public override Task StopAsync(CancellationToken stoppingToken)
@@ -40,6 +61,7 @@ namespace AccountingBook.Services
         }
         private async void UpdateStockPriceAtSpecificTime(object state)
         {
+            _logger.LogInformation("UpdateStockPriceAtSpecificTime is running.");
             var currentTime = DateTime.Now.TimeOfDay;
             // Run the update only at 13:30 PM
             if (currentTime.Hours >= 13)
@@ -57,8 +79,10 @@ namespace AccountingBook.Services
                 await Task.Delay(1000, stoppingToken); // Adjust the delay as needed
             }
         }
-        public async Task UpdateStockPricesAsync()
+        public async Task<string> UpdateStockPricesAsync()
         {
+            string updateMessage = "";
+
             try
             {
                 using (var scope = _serviceProvider.CreateScope())
@@ -105,21 +129,23 @@ namespace AccountingBook.Services
                                     stock.ClosingPrice = newPrice;
 
                                     // 使用 Dapper 更新資料庫中的 ClosingPrice
-                                    using (var connection = new SqlConnection("StockDatabase"))
+                                    string connectionString = _configuration.GetConnectionString("StockDatabase");
+
+                                    using (var connection = new SqlConnection(connectionString))
                                     {
                                         connection.Open();
-
+                                        
                                         var affectedRows = await connection.ExecuteAsync(
                                             "UPDATE Stocks SET ClosingPrice = @ClosingPrice WHERE StockId = @StockId",
                                             new { ClosingPrice = newPrice, StockId = stock.StockId });
 
                                         if (affectedRows > 0)
                                         {
-                                            // 更新成功，你可以進行相關的操作
+                                          updateMessage = "ClosingPrice 更新成功"; ;
                                         }
                                         else
                                         {
-                                            // 更新失敗，處理失敗的情況
+                                          updateMessage = "ClosingPrice 更新失敗";
                                         }
                                     }
                                 }
@@ -134,8 +160,10 @@ namespace AccountingBook.Services
             }
             catch (Exception ex)
             {
-                // 處理例外狀況
+                updateMessage = "發生錯誤：" + ex.Message;
             }
+
+            return (updateMessage);
         }
     }
 }
