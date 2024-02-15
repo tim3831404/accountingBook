@@ -17,6 +17,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 
+
 namespace AccountingBook
 {
     public class Startup
@@ -40,7 +41,12 @@ namespace AccountingBook
             services.AddScoped<IUserStockService, UserStockService>();
             services.AddScoped<IStockRepository, StockRepository>();
             services.AddScoped<StockService>();
-            services.AddScoped<UpdateClosingPriceService>();
+            //services.AddScoped<UpdateClosingPriceService>();
+            services.AddHostedService<UpdateClosingPriceService>();
+            services.AddScoped<IPDFService, PDFService>();
+            services.AddScoped<PDFTransactionParser>();
+            services.AddControllers();  
+         
 
 
         }

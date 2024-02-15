@@ -38,14 +38,11 @@ namespace AccountingBook.Services
         }
         public override Task StartAsync(CancellationToken stoppingToken)
         {
-            //_timer = new Timer(UpdateStockPriceAtSpecificTime, null, TimeSpan.Zero, TimeSpan.FromMinutes(1)); // Adjust the interval as needed
-            //return base.StartAsync(stoppingToken);
-
             var now = DateTime.Now;
-            var nextRunTime = new DateTime(now.Year, now.Month, now.Day, 16, 1, 0);
+            var nextRunTime = new DateTime(now.Year, now.Month, now.Day, 13, 30, 0);
             if (now > nextRunTime)
             {
-                nextRunTime = nextRunTime.AddDays(1); // 如果當前時間已經超過 13:30，則將下次運行時間設為明天的 13:30
+                nextRunTime = nextRunTime.AddDays(1);
             }
 
             var delay = nextRunTime - now;
@@ -61,28 +58,23 @@ namespace AccountingBook.Services
         }
         private async void UpdateStockPriceAtSpecificTime(object state)
         {
-            _logger.LogInformation("UpdateStockPriceAtSpecificTime is running.");
-            var currentTime = DateTime.Now.TimeOfDay;
-            // Run the update only at 13:30 PM
-            if (currentTime.Hours >= 13)
+            if (true)
             {
-                // Call your update method here
-                await UpdateStockPricesAsync();
+                await UpdateStockPricesAsync(CancellationToken.None);
             }
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            // Implement your background service logic here
+
             while (!stoppingToken.IsCancellationRequested)
             {
-                // Perform background task
-                await Task.Delay(1000, stoppingToken); // Adjust the delay as needed
+                await Task.Delay(10000, stoppingToken);
             }
         }
-        public async Task<string> UpdateStockPricesAsync()
+        public async Task<string> UpdateStockPricesAsync(CancellationToken stoppingToken)
         {
             string updateMessage = "";
-
+            _logger.LogInformation("UpdateStockPriceAtSpecificTime is running.");
             try
             {
                 using (var scope = _serviceProvider.CreateScope())
