@@ -1,11 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AccountingBook.Services
 {
     public interface IPDFService
     {
-        
-        string ExtractTextFromPdf(string filePath, string password);
+
+        Task<string> ExtractTextFromPdfAsync(string filePath, string userName);
            
     }
 }

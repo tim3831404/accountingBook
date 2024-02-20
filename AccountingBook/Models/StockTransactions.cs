@@ -4,11 +4,13 @@ namespace AccountingBook.Models
 {
     public class StockTransactions
     {
-        public int TransactionId { get; set; }
-        public int UserStockId { get; set; }
-        public string TransactionType { get; set; }
         public DateTime TransactionDate { get; set; }
-        public decimal TransactionPrice { get; set; }
-        public int Quantity { get; set; }
+        public string StockCode { get; set; }
+        public string StockName { get; set; }
+        public string Memo { get; set; }
+        public int Withdrawal { get; set; }
+        public int Deposit { get; set; }
+        public int Balance { get; set; }
+        public string TransactionName { get; set; }
     }
 }

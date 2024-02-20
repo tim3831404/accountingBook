@@ -5,6 +5,7 @@ using System.IO;
 using System;
 using AccountingBook.Services;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 [Route("api/[controller]")]
 [ApiController]
@@ -20,7 +21,7 @@ public class PDFUploadController : Controller
     }
 
     [HttpPost]
-    public IActionResult UploadPDF(IFormFile file)
+    public async Task<IActionResult> UploadPDF(IFormFile file, string userName)
     {
         if (file != null && file.Length > 0)
         {
@@ -34,7 +35,7 @@ public class PDFUploadController : Controller
                 }
 
                 // 處理 PDF
-                string extractedText = _pdfService.ExtractTextFromPdf(filePath, "H124468495");
+                var extractedText = await _pdfService.ExtractTextFromPdfAsync(filePath, userName);
 
 
                 return Ok(new { Message = $"檔案 {file.FileName} 已經成功上傳", Status = "Success" });
