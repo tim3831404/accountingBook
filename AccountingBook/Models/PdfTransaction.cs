@@ -11,6 +11,7 @@ namespace AccountingBook.Models
         public decimal Deposit { get; set; }
         public decimal Balance { get; set; }
         public string AccountNo { get; set; }
+        
     }
 }
 

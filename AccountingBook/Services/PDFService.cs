@@ -16,6 +16,7 @@ using Dapper;
 using System.Globalization;
 using AccountingBook.Repository;
 using System.Threading.Tasks;
+using System.Security.Cryptography.X509Certificates;
 
 
 namespace AccountingBook.Services
@@ -48,9 +49,9 @@ namespace AccountingBook.Services
                 if (existingTransaction == null) 
                 {
                     connection.Execute(@"INSERT INTO StockTransactions 
-                                    (TransactionDate, StockCode, StockName, Memo, Withdrawal, Deposit, Balance, TransactionName)
+                                    (TransactionDate, StockCode, StockName, Memo, Withdrawal, Deposit, Balance, TransactionName, PurchingPrice, Fee, Tax)
                                     VALUES 
-                                    (@TransactionDate, @StockCode, @StockName, @Memo, @Withdrawal, @Deposit, @Balance, @TransactionName)",
+                                    (@TransactionDate, @StockCode, @StockName, @Memo, @Withdrawal, @Deposit, @Balance, @TransactionName, @PurchingPrice, @Fee, @Tax)",
                                     transaction);
                 }
                 
@@ -115,7 +116,10 @@ namespace AccountingBook.Services
                                 Withdrawal = string.IsNullOrWhiteSpace(match.Groups[5].Value) ? 0 : int.Parse(match.Groups[5].Value),
                                 Deposit = string.IsNullOrWhiteSpace(match.Groups[6].Value) ? 0 : int.Parse(match.Groups[6].Value),
                                 Balance = string.IsNullOrWhiteSpace(match.Groups[7].Value) ? 0 : int.Parse(match.Groups[7].Value),
-                                TransactionName = TransactionName
+                                TransactionName = TransactionName,
+                                PurchingPrice = null,
+                                Fee = null,
+                                Tax = null,
                             };
 
                             if (transaction.Memo.Contains("買進"))
@@ -130,44 +134,133 @@ namespace AccountingBook.Services
                     pdfDocument.Close();
                 }
             
-            if (BankSource.Contains("國泰世華"))
-            {
-                foreach (PdfPageBase page in pdfDocument.Pages)
+                if (BankSource.Contains("國泰世華"))
                 {
-
-                    PdfTextExtractor extractedText = new PdfTextExtractor(page);
-                    text += extractedText.ExtractText(extractOptions);
-                    var t = JsonConvert.SerializeObject(text);
-                    string pattern = @"\d{4}/\d{2}/\d{2}\s+\S+\s+\S+\s+\d+\s+\d+\.\d+\s+\d+,\d+\s+\d+\s+\d+\s+\d+";
-                    var matches = Regex.Matches(t, pattern);
-                    foreach (Match match in matches)
-                    {
-                        var TransactionDateParts = match.Groups[1].Value.Split();
-                        var transaction = new StockTransactions
+                    Dictionary<string, string> StockCodeDic = new Dictionary<string, string>();
+                    Dictionary<string, int> StockBlanceDic = new Dictionary<string, int>();
+                    
+                    foreach (PdfPageBase page in pdfDocument.Pages)
                         {
-                            TransactionDate = new DateTime(int.Parse(TransactionDateParts[0]), int.Parse(TransactionDateParts[1]), int.Parse(TransactionDateParts[2])).Date,
-                            StockCode = match.Groups[2].Value,
-                            StockName = match.Groups[3].Value,
-                            Memo = match.Groups[4].Value,
-                            Withdrawal = string.IsNullOrWhiteSpace(match.Groups[5].Value) ? 0 : int.Parse(match.Groups[5].Value),
-                            Deposit = string.IsNullOrWhiteSpace(match.Groups[6].Value) ? 0 : int.Parse(match.Groups[6].Value),
-                            Balance = string.IsNullOrWhiteSpace(match.Groups[7].Value) ? 0 : int.Parse(match.Groups[7].Value),
-                            TransactionName = userName
-                        };
 
-                        if (transaction.Memo.Contains("買進"))
+                        PdfTextExtractor extractedText = new PdfTextExtractor(page);
+                        text += extractedText.ExtractText(extractOptions);
+                        text = Regex.Replace(text, ",", "");
+                        var t = JsonConvert.SerializeObject(text);
+                        string patternOrder = @"\d{4}/\d{2}/\d{2}\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                        string patternStock = @"(\d+)\s+(\S+)\s+(\d+\.\d+)\s+(\d+)";
+                        var matcheOrder = Regex.Matches(t, patternOrder);
+                        var matcheStock = Regex.Matches(t, patternStock);
+
+                    foreach (Match match in matcheStock)
+                        {
+
+                            StockCodeDic.Add(match.Groups[2].Value, match.Groups[1].Value);
+                            StockBlanceDic.Add(match.Groups[2].Value, int.Parse(match.Groups[4].Value));  
+
+                        }
+
+                    foreach (Match match in matcheOrder)
+                        {
+
+                            var TransactionDateParts = match.Groups[0].Value.Split()[0];
+                            var SplitMatch = match.Groups[0].Value.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                            var StockName = SplitMatch[1];
+                            var Memo = SplitMatch[2];
+                            var Withdrawal = SplitMatch[3];
+                            var Fee = int.Parse(SplitMatch[6]);
+                            var Tax = int.Parse(SplitMatch[7]);
+                            var PurchingPrice = decimal.Parse(SplitMatch[4]);
+                            var transaction = new StockTransactions
+                            {
+                                
+                                TransactionDate = new DateTime(int.Parse(TransactionDateParts.Split("/")[0]),
+                                                               int.Parse(TransactionDateParts.Split("/")[1]),
+                                                               int.Parse(TransactionDateParts.Split("/")[2])).Date,
+                                StockName = StockName,
+                                StockCode = StockCodeDic[StockName],
+                                Memo = Memo,
+                                Withdrawal = string.IsNullOrWhiteSpace(Withdrawal) ? 0 : int.Parse(Withdrawal),    
+                                Balance = StockBlanceDic[StockName],
+                                TransactionName = userName,
+                                PurchingPrice = PurchingPrice,
+                            };
+
+                        if (transaction.Memo.Contains("集買"))
                         {
                             transaction.Deposit = transaction.Withdrawal;
                             transaction.Withdrawal = 0;
                         }
                         // 存入資料庫
                         SaveTransactionToDatabase(transaction);
+                        }
+                    }
+                pdfDocument.Close();
+                }
+
+
+                if (BankSource.Contains("新光證券"))
+                {
+                    Dictionary<string, string> StockCodeDic = new Dictionary<string, string>();
+                    Dictionary<string, int> StockBlanceDic = new Dictionary<string, int>();
+
+                    foreach (PdfPageBase page in pdfDocument.Pages)
+                    {
+
+                        PdfTextExtractor extractedText = new PdfTextExtractor(page);
+                        text += extractedText.ExtractText(extractOptions);
+                        text = Regex.Replace(text, ",", "");
+                        var t = JsonConvert.SerializeObject(text);
+                        string patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                        string patternStock = @"(\d+)\s+(\S+)\s+(\d+)";
+                        var matcheOrder = Regex.Matches(t, patternOrder);
+                        var matcheStock = Regex.Matches(t, patternStock);
+
+                        foreach (Match match in matcheStock)
+                        {
+
+                            StockCodeDic.Add(match.Groups[2].Value, match.Groups[1].Value);
+                            StockBlanceDic.Add(match.Groups[2].Value, int.Parse(match.Groups[4].Value));
+
+                        }
+
+                        foreach (Match match in matcheOrder)
+                        {
+
+                            var TransactionDateParts = match.Groups[0].Value.Split()[0];
+                            var SplitMatch = match.Groups[0].Value.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+                            var StockName = SplitMatch[1];
+                            var Memo = SplitMatch[2];
+                            var Withdrawal = SplitMatch[3];
+                            var PurchingPrice = decimal.Parse(SplitMatch[4]);
+                            var Fee = int.Parse(SplitMatch[6]);
+                            var Tax = int.Parse(SplitMatch[7]);
+                            var transaction = new StockTransactions
+                            {
+
+                                TransactionDate = new DateTime(int.Parse(TransactionDateParts.Split("/")[0]),
+                                                               int.Parse(TransactionDateParts.Split("/")[1]),
+                                                               int.Parse(TransactionDateParts.Split("/")[2])).Date,
+                                StockName = StockName,
+                                StockCode = StockCodeDic[StockName],
+                                Memo = Memo,
+                                Withdrawal = string.IsNullOrWhiteSpace(Withdrawal) ? 0 : int.Parse(Withdrawal),
+                                Balance = StockBlanceDic[StockName],
+                                TransactionName = userName,
+                                PurchingPrice = PurchingPrice,
+                            };
+
+                            if (transaction.Memo.Contains("集買"))
+                            {
+                                transaction.Deposit = transaction.Withdrawal;
+                                transaction.Withdrawal = 0;
+                            }
+                            // 存入資料庫
+                            SaveTransactionToDatabase(transaction);
+                        }
+                    }
+                    pdfDocument.Close();
                     }
                 }
-                pdfDocument.Close();
-
-            }
-        }
             catch (Exception ex)
             {
 
