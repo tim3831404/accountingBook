@@ -183,6 +183,8 @@ namespace AccountingBook.Services
                                 Balance = StockBlanceDic[StockName],
                                 TransactionName = userName,
                                 PurchingPrice = PurchingPrice,
+                                Fee = Fee, 
+                                Tax = Tax,
                             };
 
                         if (transaction.Memo.Contains("集買"))
@@ -211,45 +213,57 @@ namespace AccountingBook.Services
                         text = Regex.Replace(text, ",", "");
                         var t = JsonConvert.SerializeObject(text);
                         string patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
-                        string patternStock = @"(\d+)\s+(\S+)\s+(\d+)";
+                        string patternStock = @"(\d{4,})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                        string patternDeliveryDate = @"以下是\s+(\d{4})\s+(\S+)\s+(\d{2})\s+(\S+)\s+(\d{2})\s+(\S+)";
                         var matcheOrder = Regex.Matches(t, patternOrder);
                         var matcheStock = Regex.Matches(t, patternStock);
+                        var DeliveryDate = Regex.Matches(t, patternDeliveryDate);
+
 
                         foreach (Match match in matcheStock)
                         {
+                            var num = 0;
+                            var conversionSuccessful = int.TryParse(match.Groups[2].Value, out num);
+                            if (!int.TryParse(match.Groups[2].Value, out num))
+                            {
+                                StockCodeDic.Add(match.Groups[2].Value, match.Groups[1].Value);
+                                StockBlanceDic.Add(match.Groups[2].Value, int.Parse(match.Groups[3].Value));
+                            }
+                            
 
-                            StockCodeDic.Add(match.Groups[2].Value, match.Groups[1].Value);
-                            StockBlanceDic.Add(match.Groups[2].Value, int.Parse(match.Groups[4].Value));
-
-                        }
+                        };
 
                         foreach (Match match in matcheOrder)
                         {
 
                             var TransactionDateParts = match.Groups[0].Value.Split()[0];
                             var SplitMatch = match.Groups[0].Value.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-                            var StockName = SplitMatch[1];
-                            var Memo = SplitMatch[2];
-                            var Withdrawal = SplitMatch[3];
+                            var StockCode = SplitMatch[1];
+                            var StockName = SplitMatch[2];
+                            var Memo = SplitMatch[5];
+                            var Withdrawal = int.Parse(SplitMatch[3]);
                             var PurchingPrice = decimal.Parse(SplitMatch[4]);
-                            var Fee = int.Parse(SplitMatch[6]);
-                            var Tax = int.Parse(SplitMatch[7]);
+                            var Balance = StockBlanceDic[StockName];
+                            var Fee = int.Parse(SplitMatch[7]);
+                            var Tax = int.Parse(SplitMatch[8]);
                             var transaction = new StockTransactions
                             {
 
-                                TransactionDate = new DateTime(int.Parse(TransactionDateParts.Split("/")[0]),
-                                                               int.Parse(TransactionDateParts.Split("/")[1]),
-                                                               int.Parse(TransactionDateParts.Split("/")[2])).Date,
+                                TransactionDate = new DateTime(int.Parse(DeliveryDate[0].Value.Split(" ")[1]),
+                                                               int.Parse(TransactionDateParts.Split("/")[0]),
+                                                               int.Parse(TransactionDateParts.Split("/")[1])).Date,
                                 StockName = StockName,
-                                StockCode = StockCodeDic[StockName],
+                                StockCode = StockCode,
                                 Memo = Memo,
-                                Withdrawal = string.IsNullOrWhiteSpace(Withdrawal) ? 0 : int.Parse(Withdrawal),
+                                Withdrawal = Withdrawal,
                                 Balance = StockBlanceDic[StockName],
                                 TransactionName = userName,
                                 PurchingPrice = PurchingPrice,
+                                Fee = Fee,
+                                Tax = Tax,
                             };
 
-                            if (transaction.Memo.Contains("集買"))
+                            if (transaction.Memo.Contains("現買"))
                             {
                                 transaction.Deposit = transaction.Withdrawal;
                                 transaction.Withdrawal = 0;
