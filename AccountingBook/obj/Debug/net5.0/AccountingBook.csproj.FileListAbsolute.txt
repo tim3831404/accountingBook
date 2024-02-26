@@ -78,3 +78,15 @@ D:\ASP\AccountingBook\AccountingBook\obj\Debug\net5.0\AccountingBook.xml
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\net5.0\AccountingBook.pdb
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\net5.0\AccountingBook.genruntimeconfig.cache
 D:\ASP\AccountingBook\AccountingBook\obj\Debug\net5.0\ref\AccountingBook.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\BouncyCastle.Cryptography.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Google.Apis.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Google.Apis.Auth.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Google.Apis.Core.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Google.Apis.Gmail.v1.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\MimeKit.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.CodeDom.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Formats.Asn1.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Management.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Runtime.CompilerServices.Unsafe.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Security.Cryptography.Pkcs.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Text.Encoding.CodePages.dll

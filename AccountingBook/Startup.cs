@@ -15,8 +15,9 @@ using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
-
-
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Gmail.v1;
+using AccountingBook.Services.Interfaces;
 
 namespace AccountingBook
 {
@@ -45,8 +46,22 @@ namespace AccountingBook
             //services.AddScoped<UpdateClosingPriceService>();
             services.AddHostedService<UpdateClosingPriceService>();
             services.AddScoped<IPDFService, PDFService>();
-            services.AddControllers();  
-         
+            services.AddScoped<IGmailService, MailService>();
+            services.AddControllers();
+            services.AddSingleton<GoogleCredential>(provider =>
+            {
+                return GoogleCredential.FromFile(@"D:\ASP\AccountingBook\client_secret.json")
+                    .CreateScoped(GmailService.Scope.GmailReadonly);
+            });
+
+            services.AddSingleton<IGmailService>(provider =>
+            {
+                // 您可以根據需要提供正確的憑證和 token 路徑
+                var credentialsPath = @"D:\ASP\AccountingBook\client_secret.json";
+                var tokenPath = @"D:\ASP\AccountingBook\token.json";
+                return new MailService(credentialsPath, tokenPath);
+            });
+
 
 
         }

@@ -6,7 +6,10 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.28" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.67.0" />
+    <PackageReference Include="Google.Apis.Gmail.v1" Version="1.67.0.3287" />
     <PackageReference Include="iText7" Version="8.0.3" />
+    <PackageReference Include="MimeKit" Version="4.3.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="spire.pdf" Version="10.2.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
