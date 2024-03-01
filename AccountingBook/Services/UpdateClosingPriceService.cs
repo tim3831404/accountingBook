@@ -108,7 +108,7 @@ namespace AccountingBook.Services
                                 stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedOtcData);
                                 apiUrl = urlOtc;
                             }
-
+                             
                             using (var httpClient = _httpClientFactory.CreateClient())
                             {
                                 var response = await httpClient.GetAsync(apiUrl);

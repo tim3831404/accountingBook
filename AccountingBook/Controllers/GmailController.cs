@@ -1,30 +1,69 @@
-﻿using AccountingBook.Services.Interfaces;
+﻿using Google.Apis.Auth.OAuth2.Responses;
+using Google.Apis.Gmail.v1;
+using Google.Apis.Gmail.v1.Data;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 [Route("api/[controller]")]
-[ApiController]
-public class GmailController : ControllerBase
+public class GmailController : Controller
 {
-    private readonly IGmailService _gmailService;
+    private readonly IGmailService _mailService;
 
-    public GmailController(IGmailService gmailService)
+    public GmailController(IGmailService mailService)
     {
-        _gmailService = gmailService;
+        _mailService = mailService;
+    }
+    [HttpGet("auth")]
+    public async Task<IActionResult> GetAuthUrl()
+    {
+        string authUrl = await _mailService.GetAuthUrl();
+        return Ok(new { AuthUrl = authUrl });
     }
 
-    [HttpGet("read-emails")]
-    public async Task<IActionResult> ReadEmails()
+    [HttpPost]
+    public async Task<IActionResult> AuthReturn([FromBody]AuthorizationCodeResponseUrl AuthUrl)
     {
-        try
-        {
-            string result = await _gmailService.ReadEmailsAsync();
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Internal Server Error: {ex.Message}");
-        }
+        string result = await _mailService.AuthReturn(AuthUrl);
+        return Ok(new { Result = result });
     }
+
+    //[HttpGet]
+    //public async Task<List<Message>> GetMessages()
+    //{
+    //    string res = await _mailService.GetMessages();
+    //    return Ok(new { res = res });
+    //}
+    //[HttpGet]
+    //public IActionResult GetMessages()
+    //{
+    //    try
+    //    {
+    //        // 使用 gmailService 進行收信操作
+    //        var messages = _gmailService.GetMessages("me");
+
+    //        List<object> result = new List<object>();
+
+    //        foreach (var message in messages)
+    //        {
+    //            var messageId = message.Id;
+    //            var messageBody = _gmailService.GetMessageBody("me", messageId);
+
+    //            var messageData = new
+    //            {
+    //                MessageId = messageId,
+    //                MessageBody = messageBody
+    //            };
+
+    //            result.Add(messageData);
+    //        }
+
+    //        return Ok(result);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        return BadRequest($"Error: {ex.Message}");
+    //    }
+    //}
 }

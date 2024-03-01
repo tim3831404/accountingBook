@@ -1,71 +1,210 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using Google.Apis.Auth.OAuth2;
+﻿using Google.Apis.Auth.OAuth2;
 using Google.Apis.Gmail.v1;
-using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
-using Google.Apis.Gmail.v1;
-using AccountingBook.Services.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using Google.Apis.Gmail.v1.Data;
+using Google.Apis.Util;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Web;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Google.Apis.Auth.OAuth2.Responses;
+using System.Linq;
+using System.Net.Http;
 
 public class MailService : IGmailService
 {
-    private readonly string _credentialsPath;
-    private readonly string _tokenPath;
+    private readonly string ApplicationName = "AccountingBook";
+    private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
+    string RedirectUri = $"https://localhost:5001/api/Gmail";
+    string Username = "k3831404@gmail.com";
 
-    public MailService(string credentialsPath, string tokenPath)
+    
+
+    public async Task<string> GetAuthUrl()
     {
-        _credentialsPath = credentialsPath;
-        _tokenPath = tokenPath;
+
+        string[] Scopes = { GmailService.Scope.MailGoogleCom };
+        using (var stream =
+            new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
+        {
+            string credPath = @"D:\ASP\AccountingBook\token.json";
+            FileDataStore dataStore = null;
+            var credentialRoot = Path.Combine(SecretFilePath, "Credentials");
+            if (!Directory.Exists(credentialRoot))
+            {
+                Directory.CreateDirectory(credentialRoot);
+            }
+            string filePath = Path.Combine(credentialRoot, Username);
+            dataStore = new FileDataStore(filePath);
+
+            IAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+            {
+                ClientSecrets = GoogleClientSecrets.Load(stream).Secrets,
+                Scopes = Scopes,
+                DataStore = dataStore
+            });
+
+            var authResult = await new AuthorizationCodeWebApp(flow, RedirectUri, Username)
+            .AuthorizeAsync(Username, CancellationToken.None);
+
+            string googleAuthUrl = authResult.RedirectUri;
+
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    HttpResponseMessage response = await client.GetAsync(googleAuthUrl);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        string content = await response.Content.ReadAsStringAsync();
+                        Console.WriteLine(content); // 輸出網頁內容
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error: {response.StatusCode}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Exception: {ex.Message}");
+                }
+            }
+
+            return authResult.RedirectUri;
+        } 
     }
 
-    public async Task<string> ReadEmailsAsync()
+    public async Task<string> AuthReturn(AuthorizationCodeResponseUrl authorizationCode)
     {
-        UserCredential credential = await GetCredentialAsync();
+        string[] scopes = new[] { GmailService.Scope.GmailSend };
 
-        var gmailService = new Google.Apis.Gmail.v1.GmailService(new BaseClientService.Initializer()
+        using (var stream = new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
         {
-            HttpClientInitializer = credential,
-            ApplicationName = "Gmail API",
-        });
+            //確認 credential 的目錄已建立.
+            var credentialRoot = Path.Combine(SecretFilePath, "Credentials");
+            if (!Directory.Exists(credentialRoot))
+            {
+                Directory.CreateDirectory(credentialRoot);
+            }
 
-        // Your logic to read emails goes here
-        // Example: ListLabelsResponse labels = await gmailService.Users.Labels.List("me").ExecuteAsync();
+            //暫存憑証用目錄
+            string tempPath = Path.Combine(credentialRoot, authorizationCode.State);
 
-        return "Emails read successfully";
-    }
+            IAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(
+            new GoogleAuthorizationCodeFlow.Initializer
+            {
+                ClientSecrets = GoogleClientSecrets.Load(stream).Secrets,
+                Scopes = scopes,
+                DataStore = new FileDataStore(tempPath)
+            });
 
-    public async Task SendEmailAsync(string to, string subject, string body)
-    {
-        UserCredential credential = await GetCredentialAsync();
+            //這個動作應該是要把 code 換成 token
+            await flow.ExchangeCodeForTokenAsync(Username, authorizationCode.Code, RedirectUri, CancellationToken.None).ConfigureAwait(false);
 
-        var gmailService = new Google.Apis.Gmail.v1.GmailService(new BaseClientService.Initializer()
-        {
-            HttpClientInitializer = credential,
-            ApplicationName = "Gmail API",
-        });
+            if (!string.IsNullOrWhiteSpace(authorizationCode.State))
+            {
+                string newPath = Path.Combine(credentialRoot, Username);
+                if (tempPath.ToLower() != newPath.ToLower())
+                {
+                    if (Directory.Exists(newPath))
+                        Directory.Delete(newPath, true);
 
-        // Your logic to send email goes here
-        // Example: Message email = CreateMessage(to, subject, body);
-        // await gmailService.Users.Messages.Send(email, "me").ExecuteAsync();
+                    Directory.Move(tempPath, newPath);
+                }
+            }
 
-        Console.WriteLine($"Email sent to {to} successfully");
-    }
-
-    private async Task<UserCredential> GetCredentialAsync()
-    {
-        using (var stream = new FileStream(_credentialsPath, FileMode.Open, FileAccess.Read))
-        {
-            var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                GoogleClientSecrets.Load(stream).Secrets,
-                new[] { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailSend },
-                "user",
-                CancellationToken.None,
-                new FileDataStore(_tokenPath, true));
-
-            return credential;
+            return "OK";
         }
+
+
     }
+
+    public async Task<List<Message>> GetMessages(string userId)
+    {
+        var service = GetGmailService();
+
+        var listRequest = service.Users.Messages.List(userId);
+        listRequest.LabelIds = "INBOX"; // 指定搜尋收件匣
+        listRequest.MaxResults = 10; // 最多取得 10 封信件（根據需求調整）
+
+        var messages = await listRequest.ExecuteAsync();
+        return messages?.Messages.ToList();
+    }
+
+    public async Task<string> GetMessageBody(string userId, string messageId)
+    {
+        var service = GetGmailService();
+
+        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var body = message?.Payload?.Body?.Data;
+
+        if (!string.IsNullOrEmpty(body))
+        {
+            var decodedBody = body;
+            return decodedBody;
+        }
+
+        return null;
+    }
+
+    private GmailService GetGmailService()
+    {
+        UserCredential credential = GetUserCredential();
+        var service = new GmailService(new BaseClientService.Initializer()
+        {
+            HttpClientInitializer = credential,
+            ApplicationName = ApplicationName
+        });
+
+        return service;
+    }
+
+    private UserCredential GetUserCredential()
+    {
+        var stream = new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read);
+        var dataStore = new FileDataStore(Path.Combine(SecretFilePath, "Credentials", Username));
+
+        IAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
+        {
+            ClientSecrets = GoogleClientSecrets.Load(stream).Secrets,
+            Scopes = new[] { GmailService.Scope.MailGoogleCom },
+            DataStore = dataStore
+        });
+
+        var authResult = new AuthorizationCodeWebApp(flow, RedirectUri, Username)
+            .AuthorizeAsync(Username, CancellationToken.None).Result;
+
+        return authResult.Credential;
+    }
+
+
+
+    public List<Message> GetMessage(string userId)
+    {
+        var service = GetGmailService();
+
+        var listRequest = service.Users.Messages.List(userId);
+        var messages = listRequest.Execute().Messages;
+
+        return (List<Message>)messages;
+    }
+
+    public string GetMessageBody1(string userId, string messageId)
+    {
+        var service = GetGmailService();
+
+        var message = service.Users.Messages.Get(userId, messageId).Execute();
+        var body = message.Payload.Body.Data;
+        //var decodedBody = Base64UrlEncoder.Decode(body);
+
+        return body;
+    }
+
+
 }
