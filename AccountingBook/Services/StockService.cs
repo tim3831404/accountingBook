@@ -1,14 +1,9 @@
 ﻿using AccountingBook.Interfaces;
-using AccountingBook.Repository;
-using System;
-using System.Collections.Generic;
 using System.Net;
-using System.Text.Json.Serialization;
 using System.Text;
 using AccountingBook.Models;
 using Newtonsoft.Json;
 using System.Linq;
-using Microsoft.AspNetCore.Mvc;
 
 namespace AccountingBook.Services
 {

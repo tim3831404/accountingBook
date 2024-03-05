@@ -29,41 +29,100 @@ public class GmailController : Controller
         return Ok(new { Result = result });
     }
 
-    //[HttpGet]
-    //public async Task<List<Message>> GetMessages()
-    //{
-    //    string res = await _mailService.GetMessages();
-    //    return Ok(new { res = res });
-    //}
-    //[HttpGet]
-    //public IActionResult GetMessages()
-    //{
-    //    try
-    //    {
-    //        // 使用 gmailService 進行收信操作
-    //        var messages = _gmailService.GetMessages("me");
+    [HttpGet("GetMessages")]
+    public async Task<IActionResult> GetTopTenMessages()
+    {
+        try
+        {
+            string userId = "k3831404@gmail.com"; // 替換為實際的 Gmail 地址
+            var messages = await _mailService.GetMessages(userId);
 
-    //        List<object> result = new List<object>();
+            if (messages != null)
+            {
+                var result = new List<string>();
 
-    //        foreach (var message in messages)
-    //        {
-    //            var messageId = message.Id;
-    //            var messageBody = _gmailService.GetMessageBody("me", messageId);
+                foreach (var message in messages)
+                {
+                    var body = await _mailService.GetMessageBody(userId, message.Id);
+                    result.Add(body);
+                }
 
-    //            var messageData = new
-    //            {
-    //                MessageId = messageId,
-    //                MessageBody = messageBody
-    //            };
+                return Ok(result);
+            }
+            else
+            {
+                return NotFound("No messages found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Internal Server Error: {ex.Message}");
+        }
+    }
 
-    //            result.Add(messageData);
-    //        }
+    [HttpGet("GetTopTenAttachmentsInfo")]
+    public async Task<IActionResult> GetTopTenAttachmentsInfo()
+    {
+        try
+        {
+            string userId = "k3831404@gmail.com"; // 替換為實際的 Gmail 地址
+            var messages = await _mailService.GetMessages(userId);
 
-    //        return Ok(result);
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        return BadRequest($"Error: {ex.Message}");
-    //    }
-    //}
+            if (messages != null)
+            {
+                var result = new List<(string Body, List<string> Attachments)>();
+
+                foreach (var message in messages) // 取前十封郵件
+                {
+                    var body = await _mailService.GetMessageBody(userId, message.Id);
+                    var attachments = await _mailService.GetAttachmentsInfoAsync(userId, message.Id);
+
+                    result.Add((body, attachments));
+                }
+
+                return Ok(result);
+            }
+            else
+            {
+                return NotFound("No messages found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Internal Server Error: {ex.Message}");
+        }
+    }
+    [HttpGet("GetPdfAttachments")]
+    public async Task<IActionResult> GetPdfAttachmentsAsync()
+    {
+        try
+        {
+            string userId = "k3831404@gmail.com"; // 替換為實際的 Gmail 地址
+            var messages = await _mailService.GetMessages(userId);
+
+            if (messages != null)
+            {
+                var result = new List<byte[]>();
+
+                foreach (var message in messages) // 取前十封郵件
+                {
+                    var body = await _mailService.GetMessageBody(userId, message.Id);
+                    var attachments = await _mailService.GetPdfAttachmentsAsync(userId, message.Id);
+
+                    //result.Add(attachments);
+                }
+
+                return Ok(result);
+            }
+            else
+            {
+                return NotFound("No messages found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Internal Server Error: {ex.Message}");
+        }
+    }
+
 }

@@ -90,3 +90,6 @@ D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Management.dll
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Runtime.CompilerServices.Unsafe.dll
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Security.Cryptography.Pkcs.dll
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Text.Encoding.CodePages.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Microsoft.IdentityModel.Abstractions.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Microsoft.IdentityModel.Logging.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Microsoft.IdentityModel.Tokens.dll

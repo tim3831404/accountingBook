@@ -1,7 +1,6 @@
 ﻿using AccountingBook.Interfaces;
 using AccountingBook.Models;
 using Dapper;
-using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;

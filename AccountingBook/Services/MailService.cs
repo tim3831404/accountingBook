@@ -15,6 +15,11 @@ using Microsoft.Extensions.Configuration;
 using Google.Apis.Auth.OAuth2.Responses;
 using System.Linq;
 using System.Net.Http;
+using Microsoft.IdentityModel.Tokens;
+using System.Net.Mail;
+using AccountingBook.Repository;
+using Spire.Pdf.Texts;
+using Spire.Pdf;
 
 public class MailService : IGmailService
 {
@@ -28,7 +33,7 @@ public class MailService : IGmailService
     public async Task<string> GetAuthUrl()
     {
 
-        string[] Scopes = { GmailService.Scope.MailGoogleCom };
+        string[] Scopes = { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose};
         using (var stream =
             new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
         {
@@ -52,37 +57,13 @@ public class MailService : IGmailService
             var authResult = await new AuthorizationCodeWebApp(flow, RedirectUri, Username)
             .AuthorizeAsync(Username, CancellationToken.None);
 
-            string googleAuthUrl = authResult.RedirectUri;
-
-            using (HttpClient client = new HttpClient())
-            {
-                try
-                {
-                    HttpResponseMessage response = await client.GetAsync(googleAuthUrl);
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        string content = await response.Content.ReadAsStringAsync();
-                        Console.WriteLine(content); // 輸出網頁內容
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Error: {response.StatusCode}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Exception: {ex.Message}");
-                }
-            }
-
             return authResult.RedirectUri;
         } 
     }
 
     public async Task<string> AuthReturn(AuthorizationCodeResponseUrl authorizationCode)
     {
-        string[] scopes = new[] { GmailService.Scope.GmailSend };
+        string[] scopes = new[] { GmailService.Scope.GmailReadonly };
 
         using (var stream = new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
         {
@@ -125,34 +106,6 @@ public class MailService : IGmailService
 
     }
 
-    public async Task<List<Message>> GetMessages(string userId)
-    {
-        var service = GetGmailService();
-
-        var listRequest = service.Users.Messages.List(userId);
-        listRequest.LabelIds = "INBOX"; // 指定搜尋收件匣
-        listRequest.MaxResults = 10; // 最多取得 10 封信件（根據需求調整）
-
-        var messages = await listRequest.ExecuteAsync();
-        return messages?.Messages.ToList();
-    }
-
-    public async Task<string> GetMessageBody(string userId, string messageId)
-    {
-        var service = GetGmailService();
-
-        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
-        var body = message?.Payload?.Body?.Data;
-
-        if (!string.IsNullOrEmpty(body))
-        {
-            var decodedBody = body;
-            return decodedBody;
-        }
-
-        return null;
-    }
-
     private GmailService GetGmailService()
     {
         UserCredential credential = GetUserCredential();
@@ -183,27 +136,111 @@ public class MailService : IGmailService
         return authResult.Credential;
     }
 
-
-
-    public List<Message> GetMessage(string userId)
+    public async Task<List<Message>> GetMessages(string userId)
     {
         var service = GetGmailService();
 
         var listRequest = service.Users.Messages.List(userId);
-        var messages = listRequest.Execute().Messages;
+        //listRequest.LabelIds = "INBOX"; // 指定搜尋收件匣
+        listRequest.Q = "label:Accounting";
+        listRequest.MaxResults = 10; // 最多取得 10 封信件（根據需求調整）
 
-        return (List<Message>)messages;
+        var messages = await listRequest.ExecuteAsync();
+        return messages?.Messages.ToList();
     }
 
-    public string GetMessageBody1(string userId, string messageId)
+    public async Task<string> GetMessageBody(string userId, string messageId)
     {
         var service = GetGmailService();
 
-        var message = service.Users.Messages.Get(userId, messageId).Execute();
-        var body = message.Payload.Body.Data;
-        //var decodedBody = Base64UrlEncoder.Decode(body);
+        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var body = message?.Payload?.Body?.Data;
+        var Snippet = message.Snippet?.ToString();
 
-        return body;
+        if (!string.IsNullOrEmpty(Snippet))
+        {
+            return message.Snippet;
+        }
+        else if(!string.IsNullOrEmpty(body))
+        {
+            
+            var decodedBody = Base64UrlEncoder.Decode(body);
+            return decodedBody;
+        }
+        else if (!string.IsNullOrEmpty(message.Payload.Parts[1].Body.Data))
+        {
+            var Parts = message.Payload.Parts;
+            var res = String.Empty;
+            foreach (var Part in Parts)
+            {
+                var PartData = Part.Body.Data;
+                if (!string.IsNullOrEmpty(PartData))
+                {
+                    var decodedBody = Base64UrlEncoder.Decode(PartData);
+                    res += decodedBody;
+                }
+                
+            }
+         
+        return res;
+            
+        }
+        
+        return null;
+  
+            
+    }
+
+    public async Task<List<string>> GetAttachmentsInfoAsync(string userId, string messageId)
+    {
+        var service = GetGmailService();
+
+        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var attachments = new List<string>();
+
+        if (message?.Payload?.Parts != null)
+        {
+            foreach (var part in message.Payload.Parts)
+            {
+                if (!string.IsNullOrEmpty(part.Filename))
+                {
+                    attachments.Add(part.Filename);
+                }
+            }
+        }
+
+        return attachments;
+    }
+
+    public async Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId)
+    {
+        var service = GetGmailService();
+
+        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var pdfAttachments = new List<byte[]>();
+
+        if (message?.Payload?.Parts != null)
+        {
+            foreach (var part in message.Payload.Parts)
+            {
+                if (part.MimeType == "application/pdf" && part.Body?.AttachmentId != null)
+                {
+                    var BankSource = string.Empty;
+                    var attachment = service.Users.Messages.Attachments.Get(userId, messageId, part.Body.AttachmentId).Execute();
+                    pdfAttachments.Add( Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
+                    PdfDocument pdfDocument = new PdfDocument();
+                    //string password = await _userRepository.GetPasswordByUserNameAsync(userName);
+                    pdfDocument.LoadFromBytes(pdfAttachments[0], "H124468495");
+                    PdfTextExtractor CheckBank = new PdfTextExtractor(pdfDocument.Pages[0]);
+                    PdfTextExtractOptions extractOptions = new PdfTextExtractOptions();
+                    BankSource += CheckBank.ExtractText(extractOptions);
+                    //var data = Base64UrlEncoder.Decode(attachment.Data);
+                    //pdfAttachments.Add(data);
+                }
+            }
+        }
+
+        return pdfAttachments;
     }
 
 
