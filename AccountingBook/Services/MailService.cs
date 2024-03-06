@@ -7,28 +7,33 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Google.Apis.Gmail.v1.Data;
-using Google.Apis.Util;
 using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Web;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Google.Apis.Auth.OAuth2.Responses;
 using System.Linq;
-using System.Net.Http;
 using Microsoft.IdentityModel.Tokens;
-using System.Net.Mail;
 using AccountingBook.Repository;
-using Spire.Pdf.Texts;
-using Spire.Pdf;
+using Microsoft.Extensions.Configuration;
+using AccountingBook.Services;
 
 public class MailService : IGmailService
 {
     private readonly string ApplicationName = "AccountingBook";
     private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
-    string RedirectUri = $"https://localhost:5001/api/Gmail";
-    string Username = "k3831404@gmail.com";
+    string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
+    string Username = "yan6216@gmail.com";
 
+    private readonly UserRepository _userRepository;
+    private readonly IPDFService _pDFService;
+    public MailService(UserRepository userRepository,
+                      IPDFService PDFService)
+    {
+        _userRepository = userRepository;
+        _pDFService = PDFService;
+    }
     
+
 
     public async Task<string> GetAuthUrl()
     {
@@ -139,7 +144,6 @@ public class MailService : IGmailService
     public async Task<List<Message>> GetMessages(string userId)
     {
         var service = GetGmailService();
-
         var listRequest = service.Users.Messages.List(userId);
         //listRequest.LabelIds = "INBOX"; // 指定搜尋收件匣
         listRequest.Q = "label:Accounting";
@@ -215,7 +219,7 @@ public class MailService : IGmailService
     public async Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId)
     {
         var service = GetGmailService();
-
+        var filePath = "GmailSource";
         var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
         var pdfAttachments = new List<byte[]>();
 
@@ -228,14 +232,8 @@ public class MailService : IGmailService
                     var BankSource = string.Empty;
                     var attachment = service.Users.Messages.Attachments.Get(userId, messageId, part.Body.AttachmentId).Execute();
                     pdfAttachments.Add( Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
-                    PdfDocument pdfDocument = new PdfDocument();
-                    //string password = await _userRepository.GetPasswordByUserNameAsync(userName);
-                    pdfDocument.LoadFromBytes(pdfAttachments[0], "H124468495");
-                    PdfTextExtractor CheckBank = new PdfTextExtractor(pdfDocument.Pages[0]);
-                    PdfTextExtractOptions extractOptions = new PdfTextExtractOptions();
-                    BankSource += CheckBank.ExtractText(extractOptions);
-                    //var data = Base64UrlEncoder.Decode(attachment.Data);
-                    //pdfAttachments.Add(data);
+
+
                 }
             }
         }

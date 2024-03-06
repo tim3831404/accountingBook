@@ -19,6 +19,11 @@ namespace AccountingBook.Repository
             return await _dbConnection.QueryAsync<Users>("SELECT * FROM Users");
         }
 
+        public async Task<IEnumerable<Users>> GetAllEmailAsync()
+        {
+            return await _dbConnection.QueryAsync<Users>("SELECT Email FROM Users");
+        }
+
         public async Task<string> GetPasswordByUserNameAsync(string userName)
         {
             // 使用 Dapper 執行參數化查詢

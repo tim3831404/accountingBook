@@ -280,10 +280,7 @@ namespace AccountingBook.Services
 
             }
             return text;
-        }
-                    
-                    
-        }
-
+        }               
     }
+}
 

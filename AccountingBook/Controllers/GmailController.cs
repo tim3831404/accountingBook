@@ -15,14 +15,14 @@ public class GmailController : Controller
     {
         _mailService = mailService;
     }
-    [HttpGet("auth")]
+    [HttpGet("GetAuth")]
     public async Task<IActionResult> GetAuthUrl()
     {
         string authUrl = await _mailService.GetAuthUrl();
         return Ok(new { AuthUrl = authUrl });
     }
 
-    [HttpPost]
+    [HttpPost("GetToken")]
     public async Task<IActionResult> AuthReturn([FromBody]AuthorizationCodeResponseUrl AuthUrl)
     {
         string result = await _mailService.AuthReturn(AuthUrl);
@@ -34,7 +34,7 @@ public class GmailController : Controller
     {
         try
         {
-            string userId = "k3831404@gmail.com"; // 替換為實際的 Gmail 地址
+            string userId = "yan6216@gmail.com"; // 替換為實際的 Gmail 地址
             var messages = await _mailService.GetMessages(userId);
 
             if (messages != null)
