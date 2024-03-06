@@ -1,10 +1,9 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using AccountingBook.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.IO;
 using System;
-using AccountingBook.Services;
-using System.Collections.Generic;
+using System.IO;
 using System.Threading.Tasks;
 
 [Route("api/[controller]")]
@@ -13,6 +12,7 @@ public class PDFUploadController : Controller
 {
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly IPDFService _pdfService;
+
     public PDFUploadController(IWebHostEnvironment webHostEnvironment,
                                IPDFService pdfService)
     {
@@ -37,12 +37,10 @@ public class PDFUploadController : Controller
                 // 處理 PDF
                 var extractedText = await _pdfService.ExtractTextFromPdfAsync(filePath, userName);
 
-
                 return Ok(new { Message = $"檔案 {file.FileName} 已經成功上傳", Status = "Success" });
             }
             catch (Exception ex)
             {
-                
                 return BadRequest(new { Message = $"上傳失敗: {ex.Message}", Status = "Error" });
             }
         }

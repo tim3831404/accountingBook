@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-
 namespace AccountingBook.Interfaces
 {
     public interface IUserStockService
