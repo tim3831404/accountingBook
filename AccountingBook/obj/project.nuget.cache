@@ -1,11 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "CKo623sGUNSArUK3OJnfH68y0kZBTGq0qm88V3xL2QQx7bvT3WocdO1dJvAQ0FNn+XLvfCb/+MCxf8epC0ooGg==",
+  "dgSpecHash": "P0gyqWgtFLU3SIaxj6pl0RJklt8Ng+TtfNYVgFQJqoUbB1wAPyvaqfztkgN8VgBTV729/KM5VW0I7hRDIi3y9w==",
   "success": true,
   "projectFilePath": "D:\\ASP\\AccountingBook\\AccountingBook\\AccountingBook.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\KING\\.nuget\\packages\\bouncycastle.cryptography\\2.2.1\\bouncycastle.cryptography.2.2.1.nupkg.sha512",
     "C:\\Users\\KING\\.nuget\\packages\\dapper\\2.1.28\\dapper.2.1.28.nupkg.sha512",
+    "C:\\Users\\KING\\.nuget\\packages\\fluentscheduler\\5.5.1\\fluentscheduler.5.5.1.nupkg.sha512",
     "C:\\Users\\KING\\.nuget\\packages\\google.apis\\1.67.0\\google.apis.1.67.0.nupkg.sha512",
     "C:\\Users\\KING\\.nuget\\packages\\google.apis.auth\\1.67.0\\google.apis.auth.1.67.0.nupkg.sha512",
     "C:\\Users\\KING\\.nuget\\packages\\google.apis.core\\1.67.0\\google.apis.core.1.67.0.nupkg.sha512",

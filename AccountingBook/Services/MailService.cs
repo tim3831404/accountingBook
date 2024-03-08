@@ -1,44 +1,42 @@
-﻿using Google.Apis.Auth.OAuth2;
+﻿using AccountingBook.Repository;
+using AccountingBook.Services;
+using FluentScheduler;
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Auth.OAuth2.Flows;
+using Google.Apis.Auth.OAuth2.Responses;
+using Google.Apis.Auth.OAuth2.Web;
 using Google.Apis.Gmail.v1;
+using Google.Apis.Gmail.v1.Data;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
+using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
-using Google.Apis.Gmail.v1.Data;
-using Google.Apis.Auth.OAuth2.Flows;
-using Google.Apis.Auth.OAuth2.Web;
-using System.Threading.Tasks;
-using Google.Apis.Auth.OAuth2.Responses;
 using System.Linq;
-using Microsoft.IdentityModel.Tokens;
-using AccountingBook.Repository;
-using Microsoft.Extensions.Configuration;
-using AccountingBook.Services;
+using System.Threading;
+using System.Threading.Tasks;
 
 public class MailService : IGmailService
 {
     private readonly string ApplicationName = "AccountingBook";
     private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
-    string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
-    string Username = "yan6216@gmail.com";
-
+    private string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
+    private string Username = "yan6216@gmail.com";
     private readonly UserRepository _userRepository;
     private readonly IPDFService _pDFService;
+
     public MailService(UserRepository userRepository,
                       IPDFService PDFService)
     {
         _userRepository = userRepository;
         _pDFService = PDFService;
     }
-    
-
 
     public async Task<string> GetAuthUrl()
     {
-
-        string[] Scopes = { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose};
+        string[] Scopes = { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose };
         using (var stream =
             new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
         {
@@ -63,7 +61,7 @@ public class MailService : IGmailService
             .AuthorizeAsync(Username, CancellationToken.None);
 
             return authResult.RedirectUri;
-        } 
+        }
     }
 
     public async Task<string> AuthReturn(AuthorizationCodeResponseUrl authorizationCode)
@@ -107,8 +105,6 @@ public class MailService : IGmailService
 
             return "OK";
         }
-
-
     }
 
     private GmailService GetGmailService()
@@ -141,14 +137,13 @@ public class MailService : IGmailService
         return authResult.Credential;
     }
 
-    public async Task<List<Message>> GetMessages(string userId)
+    public async Task<List<Message>> GetMessages(string userId, int numLetters)
     {
         var service = GetGmailService();
         var listRequest = service.Users.Messages.List(userId);
         //listRequest.LabelIds = "INBOX"; // 指定搜尋收件匣
         listRequest.Q = "label:Accounting";
-        listRequest.MaxResults = 10; // 最多取得 10 封信件（根據需求調整）
-
+        listRequest.MaxResults = numLetters;
         var messages = await listRequest.ExecuteAsync();
         return messages?.Messages.ToList();
     }
@@ -159,15 +154,14 @@ public class MailService : IGmailService
 
         var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
         var body = message?.Payload?.Body?.Data;
-        var Snippet = message.Snippet?.ToString();
+        var snippet = message.Snippet?.ToString();
 
-        if (!string.IsNullOrEmpty(Snippet))
+        if (!string.IsNullOrEmpty(snippet))
         {
             return message.Snippet;
         }
-        else if(!string.IsNullOrEmpty(body))
+        else if (!string.IsNullOrEmpty(body))
         {
-            
             var decodedBody = Base64UrlEncoder.Decode(body);
             return decodedBody;
         }
@@ -183,16 +177,12 @@ public class MailService : IGmailService
                     var decodedBody = Base64UrlEncoder.Decode(PartData);
                     res += decodedBody;
                 }
-                
             }
-         
-        return res;
-            
+
+            return res;
         }
-        
+
         return null;
-  
-            
     }
 
     public async Task<List<string>> GetAttachmentsInfoAsync(string userId, string messageId)
@@ -219,7 +209,6 @@ public class MailService : IGmailService
     public async Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId)
     {
         var service = GetGmailService();
-        var filePath = "GmailSource";
         var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
         var pdfAttachments = new List<byte[]>();
 
@@ -231,15 +220,12 @@ public class MailService : IGmailService
                 {
                     var BankSource = string.Empty;
                     var attachment = service.Users.Messages.Attachments.Get(userId, messageId, part.Body.AttachmentId).Execute();
-                    pdfAttachments.Add( Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
-
-
+                    pdfAttachments.Add(Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
                 }
             }
         }
 
         return pdfAttachments;
     }
-
-
 }
+
