@@ -1,10 +1,10 @@
 ﻿// 在 Repository 目錄中建立 UserStockRepository.cs
-using System.Collections.Generic;
-using System.Data;
-using System.Threading.Tasks;
 using AccountingBook.Interfaces;
 using AccountingBook.Models;
 using Dapper;
+using System.Collections.Generic;
+using System.Data;
+using System.Threading.Tasks;
 
 namespace AccountingBook.Repository
 {

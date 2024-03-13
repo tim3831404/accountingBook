@@ -12,6 +12,5 @@ namespace AccountingBook.Models
         public string rtmessage { get; set; }
         public string exKey { get; set; }
         public int cachedAlive { get; set; }
-   
     }
 }

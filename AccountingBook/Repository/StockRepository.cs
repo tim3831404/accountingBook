@@ -7,10 +7,11 @@ using System.Threading.Tasks;
 
 namespace AccountingBook.Repository
 {
-    public class StockRepository  : IStockRepository
+    public class StockRepository : IStockRepository
     {
         private readonly IDbConnection _dbConnection;
-        public StockRepository (IDbConnection dbConnection)
+
+        public StockRepository(IDbConnection dbConnection)
         {
             _dbConnection = dbConnection;
         }
@@ -19,6 +20,5 @@ namespace AccountingBook.Repository
         {
             return await _dbConnection.QueryAsync<Stocks>("SELECT * FROM Stocks");
         }
-
     }
 }

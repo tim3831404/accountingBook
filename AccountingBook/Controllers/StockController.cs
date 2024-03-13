@@ -1,10 +1,10 @@
-﻿using AccountingBook.Models;
+﻿using AccountingBook.Interfaces;
+using AccountingBook.Models;
 using AccountingBook.Services;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System;
-using AccountingBook.Interfaces;
 
 namespace AccountingBook.Controllers
 {
@@ -14,6 +14,7 @@ namespace AccountingBook.Controllers
     {
         private readonly StockService _stockService;
         private readonly IStockRepository _stockRepository;
+
         public StockController(StockService stockService,
                                 IStockRepository stockRepository)
         {
@@ -34,6 +35,7 @@ namespace AccountingBook.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
         [HttpGet("{id}")]
         public IActionResult Get(int id)
         {
@@ -44,9 +46,6 @@ namespace AccountingBook.Controllers
             }
 
             return Ok(result);
-
         }
     }
-
-    }
-
+}

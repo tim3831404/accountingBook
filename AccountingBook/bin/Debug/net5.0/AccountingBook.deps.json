@@ -34,6 +34,7 @@
       "AccountingBook/1.0.0": {
         "dependencies": {
           "Dapper": "2.1.28",
+          "FluentScheduler": "5.5.1",
           "Google.Apis": "1.67.0",
           "Google.Apis.Auth": "1.67.0",
           "Google.Apis.Gmail.v1": "1.67.0.3287",
@@ -352,6 +353,17 @@
         },
         "compile": {
           "lib/net5.0/Dapper.dll": {}
+        }
+      },
+      "FluentScheduler/5.5.1": {
+        "runtime": {
+          "lib/netstandard2.1/FluentScheduler.dll": {
+            "assemblyVersion": "5.5.1.0",
+            "fileVersion": "5.5.1.0"
+          }
+        },
+        "compile": {
+          "lib/netstandard2.1/FluentScheduler.dll": {}
         }
       },
       "Google.Apis/1.67.0": {
@@ -3130,6 +3142,13 @@
       "sha512": "sha512-ha49pzOEDmCPkMxwfPSR/wxa/6RD3r42TESIgpzpi7FXq/gNVUuJVEO+wtUzntNRhtmq3BKCl0s0aAlSZLkBUA==",
       "path": "dapper/2.1.28",
       "hashPath": "dapper.2.1.28.nupkg.sha512"
+    },
+    "FluentScheduler/5.5.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-OwehD7vZ1CFAboLPrfBTibz/FeKg8DK1h242u0Y050dbfcOlb+d4S/iGBNt/yHaHIhCsmPiQqQjG13e441xWLA==",
+      "path": "fluentscheduler/5.5.1",
+      "hashPath": "fluentscheduler.5.5.1.nupkg.sha512"
     },
     "Google.Apis/1.67.0": {
       "type": "package",

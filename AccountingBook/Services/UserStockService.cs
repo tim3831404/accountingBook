@@ -1,8 +1,8 @@
 ﻿// 在 Services 目錄中建立 UserStockService.cs
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using AccountingBook.Interfaces;
 using AccountingBook.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace AccountingBook.Services
 {

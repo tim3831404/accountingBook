@@ -1,5 +1,3 @@
-using System;
-
 namespace AccountingBook.Models
 {
     public class ErrorViewModel

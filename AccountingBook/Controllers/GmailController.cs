@@ -1,6 +1,4 @@
 ﻿using Google.Apis.Auth.OAuth2.Responses;
-using Google.Apis.Gmail.v1;
-using Google.Apis.Gmail.v1.Data;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -15,6 +13,7 @@ public class GmailController : Controller
     {
         _mailService = mailService;
     }
+
     [HttpGet("GetAuth")]
     public async Task<IActionResult> GetAuthUrl()
     {
@@ -23,7 +22,7 @@ public class GmailController : Controller
     }
 
     [HttpPost("GetToken")]
-    public async Task<IActionResult> AuthReturn([FromBody]AuthorizationCodeResponseUrl AuthUrl)
+    public async Task<IActionResult> AuthReturn([FromBody] AuthorizationCodeResponseUrl AuthUrl)
     {
         string result = await _mailService.AuthReturn(AuthUrl);
         return Ok(new { Result = result });
@@ -34,8 +33,9 @@ public class GmailController : Controller
     {
         try
         {
-            string userId = "yan6216@gmail.com"; // 替換為實際的 Gmail 地址
-            var messages = await _mailService.GetMessages(userId);
+            var userId = "yan6216@gmail.com"; // 替換為實際的 Gmail 地址
+            var numLetters = 10;
+            var messages = await _mailService.GetMessages(userId, numLetters);
 
             if (messages != null)
             {
@@ -66,7 +66,8 @@ public class GmailController : Controller
         try
         {
             string userId = "k3831404@gmail.com"; // 替換為實際的 Gmail 地址
-            var messages = await _mailService.GetMessages(userId);
+            var numLetters = 10;
+            var messages = await _mailService.GetMessages(userId, numLetters);
 
             if (messages != null)
             {
@@ -92,13 +93,15 @@ public class GmailController : Controller
             return StatusCode(500, $"Internal Server Error: {ex.Message}");
         }
     }
+
     [HttpGet("GetPdfAttachments")]
     public async Task<IActionResult> GetPdfAttachmentsAsync()
     {
         try
         {
-            string userId = "k3831404@gmail.com"; // 替換為實際的 Gmail 地址
-            var messages = await _mailService.GetMessages(userId);
+            var userId = "k3831404@gmail.com";
+            var numLettrs = 10;
+            var messages = await _mailService.GetMessages(userId, numLettrs);
 
             if (messages != null)
             {
@@ -124,5 +127,4 @@ public class GmailController : Controller
             return StatusCode(500, $"Internal Server Error: {ex.Message}");
         }
     }
-
 }

@@ -14,12 +14,12 @@
 //    public class UpdateClosingPriceController : Controller
 //    {
 //        private readonly UpdateClosingPriceService _updateClosingPriceService;
- 
+
 //        public UpdateClosingPriceController(UpdateClosingPriceService updateClosingPriceService
 //                                )
 //        {
 //            _updateClosingPriceService = updateClosingPriceService;
-  
+
 //        }
 
 //        [HttpGet]

@@ -6,11 +6,14 @@ using System.Threading.Tasks;
 public interface IGmailService
 {
     Task<string> GetAuthUrl();
+
     Task<string> AuthReturn(AuthorizationCodeResponseUrl authorizationCode);
-    Task<List<Message>> GetMessages(string userId);
+
+    Task<List<Message>> GetMessages(string userEmail, int numLetters);
+
     Task<string> GetMessageBody(string userId, string messageId);
+
     Task<List<string>> GetAttachmentsInfoAsync(string userId, string messageId);
+
     Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId);
-
-
 }

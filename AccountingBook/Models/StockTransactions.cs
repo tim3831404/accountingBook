@@ -12,7 +12,7 @@ namespace AccountingBook.Models
         public int Deposit { get; set; }
         public int Balance { get; set; }
         public string TransactionName { get; set; }
-        public decimal? PurchingPrice { get; set; }
+        public decimal? PurchasingPrice { get; set; }
         public int? Fee { get; set; }
         public int? Tax { get; set; }
     }

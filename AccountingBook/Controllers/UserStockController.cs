@@ -12,6 +12,7 @@ namespace AccountingBook.Controllers
     public class UserStockController : Controller
     {
         private readonly IUserStockService _userStockService;
+
         public UserStockController(IUserStockService userStockService)
         {
             _userStockService = userStockService;

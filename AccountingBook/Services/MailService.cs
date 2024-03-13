@@ -1,15 +1,14 @@
 ﻿using AccountingBook.Repository;
 using AccountingBook.Services;
-using FluentScheduler;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Auth.OAuth2.Web;
 using Google.Apis.Gmail.v1;
 using Google.Apis.Gmail.v1.Data;
+using Google.Apis.Requests;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
-using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -88,7 +87,7 @@ public class MailService : IGmailService
                 DataStore = new FileDataStore(tempPath)
             });
 
-            //這個動作應該是要把 code 換成 token
+            
             await flow.ExchangeCodeForTokenAsync(Username, authorizationCode.Code, RedirectUri, CancellationToken.None).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(authorizationCode.State))
@@ -107,9 +106,9 @@ public class MailService : IGmailService
         }
     }
 
-    private GmailService GetGmailService()
+    private GmailService GetGmailService(string userEmail)
     {
-        UserCredential credential = GetUserCredential();
+        UserCredential credential = GetUserCredential(userEmail);
         var service = new GmailService(new BaseClientService.Initializer()
         {
             HttpClientInitializer = credential,
@@ -119,10 +118,10 @@ public class MailService : IGmailService
         return service;
     }
 
-    private UserCredential GetUserCredential()
+    private UserCredential GetUserCredential(string userEmail)
     {
-        var stream = new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read);
-        var dataStore = new FileDataStore(Path.Combine(SecretFilePath, "Credentials", Username));
+        var stream = new FileStream(Path.Combine(SecretFilePath, $"client_secret_{userEmail}.json"), FileMode.Open, FileAccess.Read);
+        var dataStore = new FileDataStore(Path.Combine(SecretFilePath, "Credentials", userEmail));
 
         IAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
         {
@@ -131,28 +130,52 @@ public class MailService : IGmailService
             DataStore = dataStore
         });
 
-        var authResult = new AuthorizationCodeWebApp(flow, RedirectUri, Username)
-            .AuthorizeAsync(Username, CancellationToken.None).Result;
+        var authResult = new AuthorizationCodeWebApp(flow, RedirectUri, userEmail)
+            .AuthorizeAsync(userEmail, CancellationToken.None).Result;
 
         return authResult.Credential;
     }
 
-    public async Task<List<Message>> GetMessages(string userId, int numLetters)
+    public async Task<List<Message>> GetMessages(string userEmail, int numLetters)
     {
-        var service = GetGmailService();
-        var listRequest = service.Users.Messages.List(userId);
+        var service = GetGmailService(userEmail);
+        var listRequest = service.Users.Messages.List(userEmail);
         //listRequest.LabelIds = "INBOX"; // 指定搜尋收件匣
-        listRequest.Q = "label:Accounting";
-        listRequest.MaxResults = numLetters;
+        listRequest.Q = "label:Stock is:unread";
+        //listRequest.MaxResults = numLetters;
         var messages = await listRequest.ExecuteAsync();
+
+        if (messages?.Messages != null && messages.Messages.Any())
+        {
+            var markAsReadBatch = new BatchRequest(service);
+
+            foreach (var message in messages.Messages)
+            {
+                var mods = new ModifyMessageRequest { RemoveLabelIds = new List<string> { "UNREAD" } };
+                var request = service.Users.Messages.Modify(mods, userEmail, message.Id);
+                markAsReadBatch.Queue<Message>(request, (content, error, i, msg) =>
+                {
+                    if (error != null)
+                    {
+                        Console.WriteLine($"Error updating message {message.Id}: {error.Message}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Message {message.Id} marked as read successfully.");
+                    }
+                });
+            }
+
+            await markAsReadBatch.ExecuteAsync(CancellationToken.None);
+        }
         return messages?.Messages.ToList();
     }
 
-    public async Task<string> GetMessageBody(string userId, string messageId)
+    public async Task<string> GetMessageBody(string userEmail, string messageId)
     {
-        var service = GetGmailService();
-
-        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var service = GetGmailService(userEmail);
+        var att = service.Users.Messages.Get(userEmail, messageId);
+        var message = await service.Users.Messages.Get(userEmail, messageId).ExecuteAsync();
         var body = message?.Payload?.Body?.Data;
         var snippet = message.Snippet?.ToString();
 
@@ -185,11 +208,12 @@ public class MailService : IGmailService
         return null;
     }
 
-    public async Task<List<string>> GetAttachmentsInfoAsync(string userId, string messageId)
+    public async Task<List<string>> GetAttachmentsInfoAsync(string userEmail, string messageId)
     {
-        var service = GetGmailService();
+        var service = GetGmailService(userEmail);
 
-        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var message = await service.Users.Messages.Get(userEmail, messageId).ExecuteAsync();
+        
         var attachments = new List<string>();
 
         if (message?.Payload?.Parts != null)
@@ -206,10 +230,10 @@ public class MailService : IGmailService
         return attachments;
     }
 
-    public async Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId)
+    public async Task<List<byte[]>> GetPdfAttachmentsAsync(string userEmail, string messageId)
     {
-        var service = GetGmailService();
-        var message = await service.Users.Messages.Get(userId, messageId).ExecuteAsync();
+        var service = GetGmailService(userEmail);
+        var message = await service.Users.Messages.Get(userEmail, messageId).ExecuteAsync();
         var pdfAttachments = new List<byte[]>();
 
         if (message?.Payload?.Parts != null)
@@ -217,12 +241,29 @@ public class MailService : IGmailService
             foreach (var part in message.Payload.Parts)
             {
                 if (part.MimeType == "application/pdf" && part.Body?.AttachmentId != null)
+                    
                 {
-                    var BankSource = string.Empty;
-                    var attachment = service.Users.Messages.Attachments.Get(userId, messageId, part.Body.AttachmentId).Execute();
+                    var attachment = service.Users.Messages.Attachments.Get(userEmail, messageId, part.Body.AttachmentId).Execute();
                     pdfAttachments.Add(Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
                 }
+                if (part.Parts != null)
+                {
+                    foreach (var subPart in part.Parts)
+                    {
+                        {
+                            if (subPart.MimeType == "application/pdf" || subPart.Filename.EndsWith(".pdf"))
+                            {
+                                var attachment = service.Users.Messages.Attachments.Get(userEmail, messageId, subPart.Body.AttachmentId).Execute();
+                                pdfAttachments.Add(Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
+                            }
+                        }
+                    }
+                }
             }
+
+            
+
+            
         }
 
         return pdfAttachments;

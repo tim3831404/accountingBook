@@ -1,19 +1,19 @@
-﻿using AccountingBook.Models;
+﻿using AccountingBook.Interfaces;
+using AccountingBook.Models;
+using Dapper;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using System.Net.Http;
-using System.Threading.Tasks;
 using System;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Text;
-using AccountingBook.Interfaces;
-using Microsoft.Extensions.Hosting;
 using System.Threading;
-using System.Data.SqlClient;
-using Dapper;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
+using System.Threading.Tasks;
 
 namespace AccountingBook.Services
 {
@@ -24,6 +24,7 @@ namespace AccountingBook.Services
         private Timer _timer;
         private readonly IServiceProvider _serviceProvider;
         private readonly IHttpClientFactory _httpClientFactory;
+
         public UpdateClosingPriceService(
                             IServiceProvider serviceProvider,
                             IHttpClientFactory httpClientFactory,
@@ -36,6 +37,7 @@ namespace AccountingBook.Services
             _logger = logger;
             _configuration = configuration;
         }
+
         public override Task StartAsync(CancellationToken stoppingToken)
         {
             var now = DateTime.Now;
@@ -51,11 +53,13 @@ namespace AccountingBook.Services
 
             return base.StartAsync(stoppingToken);
         }
+
         public override Task StopAsync(CancellationToken stoppingToken)
         {
             _timer?.Change(Timeout.Infinite, 0);
             return base.StopAsync(stoppingToken);
         }
+
         private async void UpdateStockPriceAtSpecificTime(object state)
         {
             if (true)
@@ -63,14 +67,15 @@ namespace AccountingBook.Services
                 await UpdateStockPricesAsync(CancellationToken.None);
             }
         }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(10000, stoppingToken);
             }
         }
+
         public async Task<string> UpdateStockPricesAsync(CancellationToken stoppingToken)
         {
             string updateMessage = "";
@@ -108,7 +113,7 @@ namespace AccountingBook.Services
                                 stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedOtcData);
                                 apiUrl = urlOtc;
                             }
-                             
+
                             using (var httpClient = _httpClientFactory.CreateClient())
                             {
                                 var response = await httpClient.GetAsync(apiUrl);
@@ -126,18 +131,18 @@ namespace AccountingBook.Services
                                     using (var connection = new SqlConnection(connectionString))
                                     {
                                         connection.Open();
-                                        
+
                                         var affectedRows = await connection.ExecuteAsync(
                                             "UPDATE Stocks SET ClosingPrice = @ClosingPrice WHERE StockId = @StockId",
                                             new { ClosingPrice = newPrice, StockId = stock.StockId });
 
                                         if (affectedRows > 0)
                                         {
-                                          updateMessage = "ClosingPrice 更新成功"; ;
+                                            updateMessage = "ClosingPrice 更新成功"; ;
                                         }
                                         else
                                         {
-                                          updateMessage = "ClosingPrice 更新失敗";
+                                            updateMessage = "ClosingPrice 更新失敗";
                                         }
                                     }
                                 }

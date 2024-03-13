@@ -35,7 +35,8 @@ public class PDFUploadController : Controller
                 }
 
                 // 處理 PDF
-                var extractedText = await _pdfService.ExtractTextFromPdfAsync(filePath, userName);
+                var attactments = new byte[0];
+                var extractedText = await _pdfService.ExtractTextFromPdfAsync(filePath, userName, attactments);
 
                 return Ok(new { Message = $"檔案 {file.FileName} 已經成功上傳", Status = "Success" });
             }

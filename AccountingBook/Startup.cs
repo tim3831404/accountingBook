@@ -27,36 +27,20 @@ namespace AccountingBook
             services.AddLogging();
             services.AddSwaggerGen();
             services.AddHttpClient();
-            services.AddScoped<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
-            services.AddScoped<IUserStockRepository, UserStockRepository>();
-            services.AddScoped<IUserStockService, UserStockService>();
-            services.AddScoped<IStockRepository, StockRepository>();
-            services.AddScoped<StockService>();
-            services.AddScoped<UserRepository>(); 
-            //services.AddScoped<UpdateClosingPriceService>();
+            services.AddSingleton<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
+            services.AddSingleton<IUserStockRepository, UserStockRepository>();
+            services.AddSingleton<IUserStockService, UserStockService>();
+            services.AddSingleton<IStockRepository, StockRepository>();
+            services.AddSingleton<StockService>();
+            services.AddSingleton<UserRepository>();
+            services.AddSingleton<StockTransactionsRepository>();
             services.AddHostedService<UpdateClosingPriceService>();
-            services.AddScoped<IPDFService, PDFService>();
-            services.AddScoped<IGmailService, MailService>();
+            services.AddHostedService<JobManagerService>();
+            services.AddSingleton<IPDFService, PDFService>();
+            services.AddSingleton<IGmailService, MailService>();
             services.AddControllers();
-            //services.AddSingleton<GoogleCredential>(provider =>
-            //{
-            //    return GoogleCredential.FromFile(@"D:\ASP\AccountingBook\client_secret.json")
-            //        .CreateScoped(GmailService.Scope.GmailReadonly);
-            //});
-
-            //services.AddSingleton<IGmailService>(provider =>
-            //{
-            //    // 您可以根據需要提供正確的憑證和 token 路徑
-            //    var credentialsPath = @"D:\ASP\AccountingBook\client_secret.json";
-            //    var tokenPath = @"D:\ASP\AccountingBook\token.json";
-            //    return new MailService(credentialsPath, tokenPath);
-            //});
-
-
-
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
@@ -74,10 +58,7 @@ namespace AccountingBook
 
             app.UseRouting();
 
-          
             app.UseAuthorization();
-        
-            
 
             app.UseEndpoints(endpoints =>
             {
@@ -91,9 +72,6 @@ namespace AccountingBook
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Your API V1");
             });
-
-
-
         }
     }
 }

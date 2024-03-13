@@ -10,10 +10,12 @@ namespace AccountingBook.Repository
     public class UserRepository : IUserService
     {
         private readonly IDbConnection _dbConnection;
-        public UserRepository (IDbConnection dbConnection)
+
+        public UserRepository(IDbConnection dbConnection)
         {
             _dbConnection = dbConnection;
         }
+
         public async Task<IEnumerable<Users>> GetAllUsersAsync()
         {
             return await _dbConnection.QueryAsync<Users>("SELECT * FROM Users");
@@ -35,5 +37,15 @@ namespace AccountingBook.Repository
             return password;
         }
 
+        public async Task<string> GetUserNamedByUserEmailAsync(string userEmail)
+        {
+            // 使用 Dapper 執行參數化查詢
+            var userName = await _dbConnection.QueryFirstOrDefaultAsync<string>(
+                "SELECT UserName FROM Users WHERE Email = @userEmail",
+                new { userEmail = userEmail }
+            );
+
+            return userName;
+        }
     }
 }

@@ -93,3 +93,4 @@ D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\System.Text.Encoding.CodeP
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Microsoft.IdentityModel.Abstractions.dll
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Microsoft.IdentityModel.Logging.dll
 D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\Microsoft.IdentityModel.Tokens.dll
+D:\ASP\AccountingBook\AccountingBook\bin\Debug\net5.0\FluentScheduler.dll
