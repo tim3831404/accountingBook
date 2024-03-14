@@ -47,5 +47,16 @@ namespace AccountingBook.Repository
 
             return userName;
         }
+
+        public async Task<string> GetEmailByUserUserNameAsync(string userName)
+        {
+            // 使用 Dapper 執行參數化查詢
+            var email = await _dbConnection.QueryFirstOrDefaultAsync<string>(
+                "SELECT Email FROM Users WHERE UserName = @userName",
+                new { userName = userName }
+            );
+
+            return email;
+        }
     }
 }

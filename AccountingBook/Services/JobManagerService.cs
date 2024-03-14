@@ -1,10 +1,10 @@
-﻿using FluentScheduler;
+﻿using AccountingBook.Repository;
+using FluentScheduler;
 using Microsoft.Extensions.Hosting;
-using System.Threading.Tasks;
-using System.Threading;
-using System;
-using AccountingBook.Repository;
 using Microsoft.Extensions.Logging;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AccountingBook.Services
 {
@@ -50,20 +50,18 @@ namespace AccountingBook.Services
                 try
                 {
                     var userEmail = email.Email;
-                    var userName = await _userRepository.GetUserNamedByUserEmailAsync(userEmail); 
+                    var userName = await _userRepository.GetUserNamedByUserEmailAsync(userEmail);
                     var filePath = "GmailSource";
                     var numLettrs = 20;
                     var messages = await _mailService.GetMessages(userEmail, numLettrs);
 
                     if (messages != null)
                     {
-
                         foreach (var message in messages)
                         {
                             var body = await _mailService.GetMessageBody(userEmail, message.Id);
 
                             var attachments = await _mailService.GetPdfAttachmentsAsync(userEmail, message.Id);
-                            //var extractedText = await _pdfService.ExtractTextFromPdfAsync(filePath, userName, attachments[0]);
 
                             if (attachments.Count > 0)
                             {

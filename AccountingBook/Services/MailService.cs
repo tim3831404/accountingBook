@@ -22,7 +22,7 @@ public class MailService : IGmailService
     private readonly string ApplicationName = "AccountingBook";
     private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
     private string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
-    private string Username = "yan6216@gmail.com";
+    private string Username = "k3831404@gmail.com";
     private readonly UserRepository _userRepository;
     private readonly IPDFService _pDFService;
 
@@ -35,7 +35,7 @@ public class MailService : IGmailService
 
     public async Task<string> GetAuthUrl()
     {
-        string[] Scopes = { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose };
+        string[] Scopes = { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose, GmailService.Scope.GmailModify };
         using (var stream =
             new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
         {
@@ -65,7 +65,7 @@ public class MailService : IGmailService
 
     public async Task<string> AuthReturn(AuthorizationCodeResponseUrl authorizationCode)
     {
-        string[] scopes = new[] { GmailService.Scope.GmailReadonly };
+        string[] scopes = new[] { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose, GmailService.Scope.GmailModify };
 
         using (var stream = new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
         {
@@ -87,7 +87,6 @@ public class MailService : IGmailService
                 DataStore = new FileDataStore(tempPath)
             });
 
-            
             await flow.ExchangeCodeForTokenAsync(Username, authorizationCode.Code, RedirectUri, CancellationToken.None).ConfigureAwait(false);
 
             if (!string.IsNullOrWhiteSpace(authorizationCode.State))
@@ -126,7 +125,7 @@ public class MailService : IGmailService
         IAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow(new GoogleAuthorizationCodeFlow.Initializer
         {
             ClientSecrets = GoogleClientSecrets.Load(stream).Secrets,
-            Scopes = new[] { GmailService.Scope.MailGoogleCom },
+            Scopes = new[] { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose, GmailService.Scope.GmailModify },
             DataStore = dataStore
         });
 
@@ -174,7 +173,7 @@ public class MailService : IGmailService
     public async Task<string> GetMessageBody(string userEmail, string messageId)
     {
         var service = GetGmailService(userEmail);
-        var att = service.Users.Messages.Get(userEmail, messageId);
+        //var att = service.Users.Messages.Get(userEmail, messageId);  可以拿attachment ID，未測試拿PDF檔案
         var message = await service.Users.Messages.Get(userEmail, messageId).ExecuteAsync();
         var body = message?.Payload?.Body?.Data;
         var snippet = message.Snippet?.ToString();
@@ -213,7 +212,7 @@ public class MailService : IGmailService
         var service = GetGmailService(userEmail);
 
         var message = await service.Users.Messages.Get(userEmail, messageId).ExecuteAsync();
-        
+
         var attachments = new List<string>();
 
         if (message?.Payload?.Parts != null)
@@ -241,7 +240,7 @@ public class MailService : IGmailService
             foreach (var part in message.Payload.Parts)
             {
                 if (part.MimeType == "application/pdf" && part.Body?.AttachmentId != null)
-                    
+
                 {
                     var attachment = service.Users.Messages.Attachments.Get(userEmail, messageId, part.Body.AttachmentId).Execute();
                     pdfAttachments.Add(Convert.FromBase64String(attachment.Data.Replace('-', '+').Replace('_', '/')));
@@ -260,13 +259,37 @@ public class MailService : IGmailService
                     }
                 }
             }
-
-            
-
-            
         }
 
         return pdfAttachments;
     }
-}
 
+    public async Task SendEmail(string userEmail, string updatedContent)
+    {
+        try
+        {
+            var service = GetGmailService(userEmail);
+            var subject = "StockTransactions has been updated";
+            var body = updatedContent;
+            var message = new Message
+            {
+                Raw = Base64UrlEncode($"From: {userEmail}\r\nTo: {userEmail}\r\nSubject: {subject}\r\n\r\n{body}")
+            };
+
+            // 寄出郵件
+            await service.Users.Messages.Send(message, "me").ExecuteAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to send email: {ex.Message}");
+        }
+    }
+    private string Base64UrlEncode(string input)
+    {
+        var inputBytes = System.Text.Encoding.UTF8.GetBytes(input);
+        return Convert.ToBase64String(inputBytes)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .Replace("=", "");
+    }
+}
