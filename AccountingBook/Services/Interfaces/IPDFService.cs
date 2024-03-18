@@ -1,9 +1,11 @@
-﻿using System.Threading.Tasks;
+﻿using AccountingBook.Models;
+using System.Threading.Tasks;
 
 namespace AccountingBook.Services
 {
     public interface IPDFService
     {
-        Task<string> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments);
+        Task<StockTransactions> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments);
+        Task<bool> SaveTransactionToDatabase(StockTransactions transaction);
     }
 }

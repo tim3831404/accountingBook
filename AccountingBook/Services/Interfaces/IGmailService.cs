@@ -1,4 +1,5 @@
-﻿using Google.Apis.Auth.OAuth2.Responses;
+﻿using AccountingBook.Models;
+using Google.Apis.Auth.OAuth2.Responses;
 using Google.Apis.Gmail.v1.Data;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -16,5 +17,5 @@ public interface IGmailService
     Task<List<string>> GetAttachmentsInfoAsync(string userId, string messageId);
 
     Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId);
-    Task SendEmail(string userEmail, string updatedContent);
+    Task SendEmail(string userEmail, StockTransactions transaction);
 }

@@ -66,7 +66,10 @@ namespace AccountingBook.Services
                             if (attachments.Count > 0)
                             {
                                 var pdfResult = await _pdfService.ExtractTextFromPdfAsync(filePath, userName, attachments[0]);
-                                
+                                if (await _pdfService.SaveTransactionToDatabase(pdfResult))
+                                {
+                                    _mailService.SendEmail(userEmail, pdfResult);
+                                }
                             }
                             else
                             {

@@ -1,7 +1,6 @@
 ﻿using AccountingBook.Models;
 using AccountingBook.Repository;
 using Dapper;
-using Google.Apis.Gmail.v1;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Spire.Pdf;
@@ -12,28 +11,27 @@ using System.Data.SqlClient;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace AccountingBook.Services
 {
     public class PDFService : IPDFService
     {
         private readonly IConfiguration _configuration;
-        private readonly IGmailService _mailService;
         private readonly UserRepository _userRepository;
         private readonly StockTransactionsRepository _stockTransactionsRepository;
+        
 
         public PDFService(IConfiguration configuration,
-                          IGmailService mailService,
                           UserRepository userRepository,
                           StockTransactionsRepository stockTransactionsRepository)
         {
             _configuration = configuration;
-            _mailService = mailService;
             _userRepository = userRepository;
             _stockTransactionsRepository = stockTransactionsRepository;
         }
 
-        public void SaveTransactionToDatabase(StockTransactions transaction)
+        public async Task<bool> SaveTransactionToDatabase(StockTransactions transaction)
         {
             string connectionString = _configuration.GetConnectionString("StockDatabase");
 
@@ -57,7 +55,7 @@ namespace AccountingBook.Services
                             (@TransactionDate, @StockCode, @StockName, @Memo, @Withdrawal, @Deposit, @Balance, @TransactionName, @PurchasingPrice, @Fee, @Tax)",
                             transaction);
                 }
-                else
+                else 
                 {
                     if (existingTransaction.PurchasingPrice != transaction.PurchasingPrice ||
                         existingTransaction.Fee != transaction.Fee ||
@@ -74,21 +72,26 @@ namespace AccountingBook.Services
                                     AND TransactionName = @TransactionName",
                                     transaction);
                     }
+                    else
+                    {
+                        return false;
+                    }
                 }
             }
+            return true;
         }
 
-        public async Task<string> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments)
+        public async Task<StockTransactions> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments)
         {
             StringBuilder allTextBuilder = new StringBuilder();
             var BankSource = string.Empty;
+            var transaction = new StockTransactions();
 
             try
             {
                 // 使用 Spire.PDF 讀取 PDF
                 PdfDocument pdfDocument = new PdfDocument();
-                var userEmail = await _userRepository.GetEmailByUserUserNameAsync(userName); ;
-                var password = await _userRepository.GetPasswordByUserNameAsync(userName);
+                string password = await _userRepository.GetPasswordByUserNameAsync(userName);
                 if (filePath == "GmailSource")
                 {
                     pdfDocument.LoadFromBytes(attachments, password);
@@ -136,7 +139,7 @@ namespace AccountingBook.Services
                     foreach (Match match in matches2)
                     {
                         var TransactionDateParts = match.Groups[1].Value.Split();
-                        var transaction = new StockTransactions
+                        transaction = new StockTransactions
                         {
                             TransactionDate = new DateTime(int.Parse(TransactionDateParts[0]) + 1911, int.Parse(TransactionDateParts[1]), int.Parse(TransactionDateParts[2])).Date,
                             StockCode = match.Groups[2].Value,
@@ -158,7 +161,6 @@ namespace AccountingBook.Services
                         }
                         // 存入資料庫
                         SaveTransactionToDatabase(transaction);
-                        _mailService.SendEmail(userEmail, transaction.ToString());
                     }
                     pdfDocument.Close();
                 }
@@ -208,7 +210,7 @@ namespace AccountingBook.Services
                             Balance = StockBlanceDic[StockName];
                         }
 
-                        var transaction = new StockTransactions
+                        transaction = new StockTransactions
                         {
                             TransactionDate = new DateTime(int.Parse(TransactionDateParts.Split("/")[0]),
                                                            int.Parse(TransactionDateParts.Split("/")[1]),
@@ -230,8 +232,7 @@ namespace AccountingBook.Services
                             transaction.Withdrawal = 0;
                         }
                         // 存入資料庫
-                        SaveTransactionToDatabase(transaction);
-                        _mailService.SendEmail(userEmail, transaction.ToString());
+                        //SaveTransactionToDatabase(transaction);
                     }
                     pdfDocument.Close();
                 }
@@ -282,7 +283,7 @@ namespace AccountingBook.Services
                         }
                         var Fee = int.Parse(SplitMatch[7]);
                         var Tax = int.Parse(SplitMatch[8]);
-                        var transaction = new StockTransactions
+                        transaction = new StockTransactions
                         {
                             TransactionDate = new DateTime(int.Parse(DeliveryDate[0].Value.Split(" ")[1]),
                                                            int.Parse(TransactionDateParts.Split("/")[0]),
@@ -304,8 +305,7 @@ namespace AccountingBook.Services
                             transaction.Withdrawal = 0;
                         }
                         // 存入資料庫
-                        SaveTransactionToDatabase(transaction);
-                        _mailService.SendEmail(userEmail, transaction.ToString());
+                        //SaveTransactionToDatabase(transaction);
                     }
 
                     pdfDocument.Close();
@@ -314,7 +314,7 @@ namespace AccountingBook.Services
             catch (Exception ex)
             {
             }
-            return allTextBuilder.ToString();
+            return transaction;
         }
     }
 }

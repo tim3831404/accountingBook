@@ -1,4 +1,5 @@
-﻿using AccountingBook.Repository;
+﻿using AccountingBook.Models;
+using AccountingBook.Repository;
 using AccountingBook.Services;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Auth.OAuth2.Flows;
@@ -16,6 +17,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 
 public class MailService : IGmailService
 {
@@ -264,7 +266,7 @@ public class MailService : IGmailService
         return pdfAttachments;
     }
 
-    public async Task SendEmail(string userEmail, string updatedContent)
+    public async Task SendEmail(string userEmail, StockTransactions updatedContent)
     {
         try
         {
@@ -276,7 +278,6 @@ public class MailService : IGmailService
                 Raw = Base64UrlEncode($"From: {userEmail}\r\nTo: {userEmail}\r\nSubject: {subject}\r\n\r\n{body}")
             };
 
-            // 寄出郵件
             await service.Users.Messages.Send(message, "me").ExecuteAsync();
         }
         catch (Exception ex)
