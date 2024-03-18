@@ -83,7 +83,7 @@ namespace AccountingBook.Services
 
         public async Task<StockTransactions> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments)
         {
-            StringBuilder allTextBuilder = new StringBuilder();
+            var allTextBuilder = "";
             var BankSource = string.Empty;
             var transaction = new StockTransactions();
 
@@ -112,7 +112,7 @@ namespace AccountingBook.Services
                         PdfTextExtractor extractedText = new PdfTextExtractor(page);
                         var text = extractedText.ExtractText(extractOptions);
                         text = Regex.Replace(text, ",", "");
-                        allTextBuilder.Append(text);
+                        allTextBuilder+=text;
                     }
                     var t = JsonConvert.SerializeObject(allTextBuilder);
                     //remove watermark
@@ -174,7 +174,7 @@ namespace AccountingBook.Services
                         PdfTextExtractor extractedText = new PdfTextExtractor(page);
                         var text = extractedText.ExtractText(extractOptions);
                         text = Regex.Replace(text, ",", "");
-                        allTextBuilder.Append(text);
+                        allTextBuilder += text;
                     }
                     var t = JsonConvert.SerializeObject(allTextBuilder);
                     string patternOrder = @"\d{4}/\d{2}/\d{2}\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
@@ -244,17 +244,18 @@ namespace AccountingBook.Services
                     foreach (PdfPageBase page in pdfDocument.Pages)
                     {
                         PdfTextExtractor extractedText = new PdfTextExtractor(page);
-                        var text = extractedText.ExtractText(extractOptions);
-                        text = Regex.Replace(text, ",", "");
-                        allTextBuilder.Append(text);
+                        allTextBuilder += extractedText.ExtractText(extractOptions);
+                        allTextBuilder = Regex.Replace(allTextBuilder, ",", "");
+                        allTextBuilder = JsonConvert.SerializeObject(allTextBuilder);
+                        
                     }
-                    var t = JsonConvert.SerializeObject(allTextBuilder);
+                    
                     string patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     string patternStock = @"(\d{4,})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     string patternDeliveryDate = @"以下是\s+(\d{4})\s+(\S+)\s+(\d{2})\s+(\S+)\s+(\d{2})\s+(\S+)";
-                    var matcheOrder = Regex.Matches(t, patternOrder);
-                    var matcheStock = Regex.Matches(t, patternStock);
-                    var DeliveryDate = Regex.Matches(t, patternDeliveryDate);
+                    var matcheOrder = Regex.Matches(allTextBuilder, patternOrder);
+                    var matcheStock = Regex.Matches(allTextBuilder, patternStock);
+                    var DeliveryDate = Regex.Matches(allTextBuilder, patternDeliveryDate);
 
                     foreach (Match match in matcheStock)
                     {

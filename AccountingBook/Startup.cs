@@ -34,7 +34,7 @@ namespace AccountingBook
             services.AddSingleton<StockService>();
             services.AddSingleton<UserRepository>();
             services.AddSingleton<StockTransactionsRepository>();
-            services.AddHostedService<UpdateClosingPriceService>();
+            //services.AddHostedService<UpdateClosingPriceService>();
             services.AddHostedService<JobManagerService>();
             services.AddSingleton<IPDFService, PDFService>();
             services.AddSingleton<IGmailService, MailService>();
