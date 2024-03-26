@@ -24,7 +24,7 @@ public class MailService : IGmailService
     private readonly string ApplicationName = "AccountingBook";
     private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
     private string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
-    private string Username = "k3831404@gmail.com";
+    private string Username = "yan6216@gmail.com";
     private readonly UserRepository _userRepository;
     private readonly IPDFService _pDFService;
 
@@ -39,7 +39,7 @@ public class MailService : IGmailService
     {
         string[] Scopes = { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose, GmailService.Scope.GmailModify };
         using (var stream =
-            new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
+            new FileStream(Path.Combine(SecretFilePath, $"client_secret_{Username}.json"), FileMode.Open, FileAccess.Read))
         {
             string credPath = @"D:\ASP\AccountingBook\token.json";
             FileDataStore dataStore = null;
@@ -69,7 +69,7 @@ public class MailService : IGmailService
     {
         string[] scopes = new[] { GmailService.Scope.GmailReadonly, GmailService.Scope.GmailCompose, GmailService.Scope.GmailModify };
 
-        using (var stream = new FileStream(Path.Combine(SecretFilePath, "client_secret.json"), FileMode.Open, FileAccess.Read))
+        using (var stream = new FileStream(Path.Combine(SecretFilePath, $"client_secret_{Username}.json"), FileMode.Open, FileAccess.Read))
         {
             //確認 credential 的目錄已建立.
             var credentialRoot = Path.Combine(SecretFilePath, "Credentials");

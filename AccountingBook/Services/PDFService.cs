@@ -250,10 +250,15 @@ namespace AccountingBook.Services
                         
                     }
                     
-                    string patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
-                    string patternStock = @"(\d{4,})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
-                    string patternDeliveryDate = @"以下是\s+(\d{4})\s+(\S+)\s+(\d{2})\s+(\S+)\s+(\d{2})\s+(\S+)";
+                    var patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                    var patternStock = @"(\d{4,})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                    var patternDeliveryDate = @"以下是\s+(\d{4})\s+(\S+)\s+(\d{2})\s+(\S+)\s+(\d{2})\s+(\S+)";
                     var matcheOrder = Regex.Matches(allTextBuilder, patternOrder);
+                    if (matcheOrder.Count == 0)
+                    {
+                        patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                        matcheOrder = Regex.Matches(allTextBuilder, patternOrder);
+                    }
                     var matcheStock = Regex.Matches(allTextBuilder, patternStock);
                     var DeliveryDate = Regex.Matches(allTextBuilder, patternDeliveryDate);
 

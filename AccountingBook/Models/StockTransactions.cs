@@ -4,6 +4,7 @@ namespace AccountingBook.Models
 {
     public class StockTransactions
     {
+        public int TransactionId { get; set; }
         public DateTime TransactionDate { get; set; }
         public string StockCode { get; set; }
         public string StockName { get; set; }
@@ -15,5 +16,6 @@ namespace AccountingBook.Models
         public decimal? PurchasingPrice { get; set; }
         public int? Fee { get; set; }
         public int? Tax { get; set; }
+        public int? Profit { get; set; }
     }
 }

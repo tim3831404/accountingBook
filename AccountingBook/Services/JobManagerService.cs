@@ -3,12 +3,14 @@ using AccountingBook.Models;
 using AccountingBook.Repository;
 using Dapper;
 using FluentScheduler;
+using Google.Apis.Gmail.v1.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
@@ -28,6 +30,7 @@ namespace AccountingBook.Services
         private readonly ILogger<JobManagerService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly StockTransactionsRepository _stockTransactionsRepository;
 
         public JobManagerService(IServiceProvider serviceProvider,
                                  IPDFService pdfService,
@@ -35,7 +38,8 @@ namespace AccountingBook.Services
                                  UserRepository userRepository,
                                  ILogger<JobManagerService> logger,
                                  IHttpClientFactory httpClientFactory,
-                                 IConfiguration configuration)
+                                 IConfiguration configuration,
+                                 StockTransactionsRepository stockTransactionsRepository)
         {
             _serviceProvider = serviceProvider;
             _pdfService = pdfService;
@@ -44,15 +48,17 @@ namespace AccountingBook.Services
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _stockTransactionsRepository = stockTransactionsRepository;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            //UpdateProfit();
             UpdateStockTransactions();
-            UpdateStockPricesAsync();
-            JobManager.AddJob(() => UpdateStockTransactions(), s => s.ToRunEvery(1).Days().At(13, 30));
-            JobManager.AddJob(() => UpdateStockPricesAsync(), s => s.ToRunEvery(1).Days().At(13, 30));
-            
+            //UpdateStockPricesAsync();
+            //JobManager.AddJob(() => UpdateStockTransactions(), s => s.ToRunEvery(1).Days().At(13, 30));
+            //JobManager.AddJob(() => UpdateStockPricesAsync(), s => s.ToRunEvery(1).Days().At(13, 30));
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 // 在這裡可以處理其他背景任務的邏輯
@@ -120,7 +126,7 @@ namespace AccountingBook.Services
                 {
                     var stockRepository = scope.ServiceProvider.GetRequiredService<IStockRepository>();
 
-                    
+
                     var allStocks = await stockRepository.GetAllStocksAsync();
 
                     foreach (var stock in allStocks)
@@ -195,6 +201,39 @@ namespace AccountingBook.Services
             }
 
             return (updateMessage);
+        }
+
+        public async Task UpdateProfit()
+        {
+
+            var transactions = await _stockTransactionsRepository.GetInfoByProfitAsync();
+            transactions.OrderBy(x => x.TransactionDate);
+
+            foreach (var transaction in transactions)
+            {
+                if (transaction.Withdrawal != 0)
+                {
+                    var purchasingInfo = transactions.Where
+                                                        (t => t.StockCode ==
+                                                        transaction.StockCode
+                                                        && t.Balance != 0
+                                                        && t.Profit == null).ToList();
+                    var profit = 0;
+                    for (int i = 0; i<= (transaction.Withdrawal)/1000; i++)
+                    {
+                        var purchasingPrice = purchasingInfo[i].PurchasingPrice;
+                        var income = (transaction.PurchasingPrice - purchasingPrice) * 1000;
+                        var outcome = purchasingInfo[i].Fee + transaction.Fee + transaction.Tax;
+                        profit += Convert.ToInt32(income - outcome);
+                        await _stockTransactionsRepository.UpdateIncomeProfitAsync(purchasingInfo[i].TransactionId);
+
+                    }
+
+                    await _stockTransactionsRepository.UpdateOutcomeProfitAsync(transaction.TransactionId, profit);
+                }
+
+
+            }
         }
     }
 }
