@@ -30,20 +30,20 @@ namespace AccountingBook.Repository
         public async Task<string> GetStockCodeByStockNameAsync(string stockName)
         {
             // 使用 Dapper 執行參數化查詢
-            var password = await _dbConnection.QueryFirstOrDefaultAsync<string>(
+            var stockCode = await _dbConnection.QueryFirstOrDefaultAsync<string>(
                 "SELECT StockCode FROM StockTransactions WHERE StockName = @stockName",
                 new { stockName = stockName }
             );
 
-            return password;
+            return stockCode;
         }
 
         public async Task<IEnumerable<StockTransactions>> GetInfoByProfitAsync()
         {
             // 使用 Dapper 執行參數化查詢
             return await _dbConnection.QueryAsync<StockTransactions>(
-                "SELECT * FROM StockTransactions WHERE StockCode = @StockCode AND Profit IS NULL ORDER BY TransactionDate",
-                new { StockCode = "6243" });
+                "SELECT * FROM StockTransactions WHERE StockCode = @StockCode AND Profit IS NULL ORDER BY TransactionDate, TransactionId",
+                new { StockCode = "8085" });
         }
         public async Task UpdateIncomeProfitAsync(int depositTransactionId)
         {

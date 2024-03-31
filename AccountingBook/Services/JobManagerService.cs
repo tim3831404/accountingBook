@@ -207,28 +207,36 @@ namespace AccountingBook.Services
         {
 
             var transactions = await _stockTransactionsRepository.GetInfoByProfitAsync();
-            transactions.OrderBy(x => x.TransactionDate);
-
             foreach (var transaction in transactions)
             {
+                
+               
                 if (transaction.Withdrawal != 0)
                 {
                     var purchasingInfo = transactions.Where
                                                         (t => t.StockCode ==
                                                         transaction.StockCode
                                                         && t.Balance != 0
+                                                        && t.Withdrawal == 0
                                                         && t.Profit == null).ToList();
                     var profit = 0;
-                    for (int i = 0; i<= (transaction.Withdrawal)/1000; i++)
+                    var totalDeposit = 0;
+                    var purchasingInfoCount = 0;
+                    while (transaction.Withdrawal != totalDeposit)
                     {
-                        var purchasingPrice = purchasingInfo[i].PurchasingPrice;
-                        var income = (transaction.PurchasingPrice - purchasingPrice) * 1000;
-                        var outcome = purchasingInfo[i].Fee + transaction.Fee + transaction.Tax;
+                        var purchasingPrice = purchasingInfo[purchasingInfoCount].PurchasingPrice;
+                        var deposit = purchasingInfo[purchasingInfoCount].Deposit;
+                        totalDeposit += deposit;
+                        var income = (transaction.PurchasingPrice - purchasingPrice) * deposit;
+                        var outcome = purchasingInfo[purchasingInfoCount].Fee;
                         profit += Convert.ToInt32(income - outcome);
-                        await _stockTransactionsRepository.UpdateIncomeProfitAsync(purchasingInfo[i].TransactionId);
+                        await _stockTransactionsRepository.UpdateIncomeProfitAsync(purchasingInfo[purchasingInfoCount].TransactionId);
+                        purchasingInfo[purchasingInfoCount].Profit = 0;
+                        purchasingInfoCount ++;
 
                     }
-
+                    profit -= Convert.ToInt32(transaction.Fee + transaction.Tax);
+                    transaction.Profit = profit;
                     await _stockTransactionsRepository.UpdateOutcomeProfitAsync(transaction.TransactionId, profit);
                 }
 

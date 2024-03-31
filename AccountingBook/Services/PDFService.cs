@@ -31,38 +31,40 @@ namespace AccountingBook.Services
             _stockTransactionsRepository = stockTransactionsRepository;
         }
 
-        public async Task<bool> SaveTransactionToDatabase(StockTransactions transaction)
+        public async Task<bool> SaveTransactionToDatabase(List<StockTransactions> transactions)
         {
             string connectionString = _configuration.GetConnectionString("StockDatabase");
-
+            bool isUpdated = false;
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();
-
-                var existingTransaction = connection.QueryFirstOrDefault<StockTransactions>(
-                @"SELECT * FROM StockTransactions
-                WHERE TransactionDate = @TransactionDate
-                AND StockCode = @StockCode
-                AND StockName = @StockName
-                AND TransactionName = @TransactionName",
-                transaction);
-
-                if (existingTransaction == null)
+                foreach (var transaction in transactions)
                 {
-                    connection.Execute(@"INSERT INTO StockTransactions
+                    var existingTransaction = connection.QueryFirstOrDefault<StockTransactions>(
+                    @"SELECT * FROM StockTransactions
+                    WHERE TransactionDate = @TransactionDate
+                    AND StockCode = @StockCode
+                    AND StockName = @StockName
+                    AND TransactionName = @TransactionName",
+                    transaction);
+
+                    if (existingTransaction == null)
+                    {
+                        connection.Execute(@"INSERT INTO StockTransactions
                             (TransactionDate, StockCode, StockName, Memo, Withdrawal, Deposit, Balance, TransactionName, PurchasingPrice, Fee, Tax)
                             VALUES
                             (@TransactionDate, @StockCode, @StockName, @Memo, @Withdrawal, @Deposit, @Balance, @TransactionName, @PurchasingPrice, @Fee, @Tax)",
-                            transaction);
-                }
-                else 
-                {
-                    if (existingTransaction.PurchasingPrice != transaction.PurchasingPrice ||
-                        existingTransaction.Fee != transaction.Fee ||
-                        existingTransaction.Tax != transaction.Tax)
+                                transaction);
+                        isUpdated = true;
+                    }
+                    else
                     {
-                        // Update existing transaction with new values
-                        connection.Execute(@"UPDATE StockTransactions
+                        if (existingTransaction.PurchasingPrice != transaction.PurchasingPrice ||
+                            existingTransaction.Fee != transaction.Fee ||
+                            existingTransaction.Tax != transaction.Tax)
+                        {
+                            // Update existing transaction with new values
+                            connection.Execute(@"UPDATE StockTransactions
                                     SET PurchasingPrice = @PurchasingPrice,
                                         Fee = @Fee,
                                         Tax = @Tax
@@ -71,21 +73,22 @@ namespace AccountingBook.Services
                                     AND StockName = @StockName
                                     AND TransactionName = @TransactionName",
                                     transaction);
-                    }
-                    else
-                    {
-                        return false;
+                            isUpdated = true;
+
+                        }
                     }
                 }
+                return isUpdated;
             }
-            return true;
+                
         }
 
-        public async Task<StockTransactions> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments)
+        public async Task<List<StockTransactions>> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments)
         {
             var allTextBuilder = "";
             var BankSource = string.Empty;
             var transaction = new StockTransactions();
+            var transactions = new List<StockTransactions>();
 
             try
             {
@@ -160,7 +163,8 @@ namespace AccountingBook.Services
                             transaction.Withdrawal = 0;
                         }
                         // 存入資料庫
-                        SaveTransactionToDatabase(transaction);
+                        transactions.Add(transaction);
+                        SaveTransactionToDatabase(transactions);
                     }
                     pdfDocument.Close();
                 }
@@ -168,6 +172,7 @@ namespace AccountingBook.Services
                 {
                     Dictionary<string, string> StockCodeDic = new Dictionary<string, string>();
                     Dictionary<string, int> StockBlanceDic = new Dictionary<string, int>();
+                    
 
                     foreach (PdfPageBase page in pdfDocument.Pages)
                     {
@@ -198,12 +203,12 @@ namespace AccountingBook.Services
                         var Fee = int.Parse(SplitMatch[6]);
                         var Tax = int.Parse(SplitMatch[7]);
                         var PurchasingPrice = decimal.Parse(SplitMatch[4]);
-                        var StockCode = StockCodeDic[StockName];
-                        if (StockCode == null)
+                        string stockCode;
+                        if (!StockCodeDic.TryGetValue(StockName, out stockCode))
                         {
-                            StockCode = _stockTransactionsRepository.GetStockCodeByStockNameAsync(StockName).ToString();
+                            stockCode = await _stockTransactionsRepository.GetStockCodeByStockNameAsync(StockName);
                         }
-
+                        
                         var Balance = 0;
                         if (StockBlanceDic.ContainsKey(StockName))
                         {
@@ -216,7 +221,7 @@ namespace AccountingBook.Services
                                                            int.Parse(TransactionDateParts.Split("/")[1]),
                                                            int.Parse(TransactionDateParts.Split("/")[2])).Date,
                             StockName = StockName,
-                            StockCode = StockCode,
+                            StockCode = stockCode,
                             Memo = Memo,
                             Withdrawal = string.IsNullOrWhiteSpace(Withdrawal) ? 0 : int.Parse(Withdrawal),
                             Balance = Balance,
@@ -231,6 +236,8 @@ namespace AccountingBook.Services
                             transaction.Deposit = transaction.Withdrawal;
                             transaction.Withdrawal = 0;
                         }
+
+                        transactions.Add(transaction);
                         // 存入資料庫
                         //SaveTransactionToDatabase(transaction);
                     }
@@ -240,6 +247,7 @@ namespace AccountingBook.Services
                 {
                     Dictionary<string, string> StockCodeDic = new Dictionary<string, string>();
                     Dictionary<string, int> StockBlanceDic = new Dictionary<string, int>();
+                    
 
                     foreach (PdfPageBase page in pdfDocument.Pages)
                     {
@@ -310,6 +318,8 @@ namespace AccountingBook.Services
                             transaction.Deposit = transaction.Withdrawal;
                             transaction.Withdrawal = 0;
                         }
+
+                        transactions.Add(transaction);
                         // 存入資料庫
                         //SaveTransactionToDatabase(transaction);
                     }
@@ -320,7 +330,7 @@ namespace AccountingBook.Services
             catch (Exception ex)
             {
             }
-            return transaction;
+            return transactions;
         }
     }
 }

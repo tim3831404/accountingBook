@@ -11,10 +11,12 @@ using Google.Apis.Requests;
 using Google.Apis.Services;
 using Google.Apis.Util.Store;
 using Microsoft.IdentityModel.Tokens;
+using MimeKit;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -266,13 +268,29 @@ public class MailService : IGmailService
         return pdfAttachments;
     }
 
-    public async Task SendEmail(string userEmail, StockTransactions updatedContent)
+    public async Task SendEmail(string userEmail, List<StockTransactions> updatedContents)
     {
         try
         {
             var service = GetGmailService(userEmail);
             var subject = "StockTransactions has been updated";
-            var body = updatedContent;
+            var body = new StringBuilder();
+            foreach (var updatedContent  in updatedContents) 
+            {
+                body.Append(updatedContent.TransactionDate.ToShortDateString());
+                body.Append(updatedContent.StockName);
+                body.Append(updatedContent.PurchasingPrice);
+                body.Append(updatedContent.Memo);
+                if (updatedContent.Deposit == 0)
+                {
+                    body.AppendLine(updatedContent.Withdrawal.ToString());
+                }
+                
+                else
+                {
+                    body.AppendLine(updatedContent.Deposit.ToString());
+                }              
+            }
             var message = new Message
             {
                 Raw = Base64UrlEncode($"From: {userEmail}\r\nTo: {userEmail}\r\nSubject: {subject}\r\n\r\n{body}")
