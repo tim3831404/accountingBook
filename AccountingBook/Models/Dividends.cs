@@ -10,4 +10,13 @@ namespace AccountingBook.Models
         public int AmountCash { get; set; }
         public int AmountStock { get; set; }
     }
+
+    public class  test
+    {
+        public static bool caculateAdd()
+        {
+            return true;
+        }
+    }
+
 }

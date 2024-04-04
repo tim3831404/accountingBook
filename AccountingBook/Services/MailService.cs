@@ -17,6 +17,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
@@ -26,7 +27,7 @@ public class MailService : IGmailService
     private readonly string ApplicationName = "AccountingBook";
     private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
     private string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
-    private string Username = "yan6216@gmail.com";
+    private string Username = "k3831404@gmail.com";
     private readonly UserRepository _userRepository;
     private readonly IPDFService _pDFService;
 
@@ -43,6 +44,8 @@ public class MailService : IGmailService
         using (var stream =
             new FileStream(Path.Combine(SecretFilePath, $"client_secret_{Username}.json"), FileMode.Open, FileAccess.Read))
         {
+
+            var tesat = test.caculateAdd();
             string credPath = @"D:\ASP\AccountingBook\token.json";
             FileDataStore dataStore = null;
             var credentialRoot = Path.Combine(SecretFilePath, "Credentials");
@@ -267,6 +270,33 @@ public class MailService : IGmailService
 
         return pdfAttachments;
     }
+
+    public async Task<string> GetMessageSnippetAsync(string userEmail, string messageId)
+    {
+        //用於國泰的 etrade 未完成
+        var service = GetGmailService(userEmail);
+        var message = await service.Users.Messages.Get(userEmail, messageId).ExecuteAsync();
+        var headers = message.Payload.Headers;
+        var StockInfo = "";
+        foreach (var header in headers)
+        {
+            if (header.Value == "etrade@cathaysec.com.tw")
+            {
+                StockInfo += message.Snippet;
+            }
+
+            StockInfo = Regex.Replace(StockInfo, ",", "");
+            var patternOrder = @"(\d+)\s+(\S+)\s+(\d{2})\s+(\d+)";
+            var matcheOrder = Regex.Matches(StockInfo, patternOrder);
+        }
+
+
+        
+        
+
+        return StockInfo;
+    }
+
 
     public async Task SendEmail(string userEmail, List<StockTransactions> updatedContents)
     {

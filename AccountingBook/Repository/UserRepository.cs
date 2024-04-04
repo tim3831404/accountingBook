@@ -18,7 +18,7 @@ namespace AccountingBook.Repository
 
         public async Task<IEnumerable<Users>> GetAllUsersAsync()
         {
-            return await _dbConnection.QueryAsync<Users>("SELECT * FROM Users");
+            return await _dbConnection.QueryAsync<Users>("SELECT * FROM Users WHERE Email = yan6216@gmail.com");
         }
 
         public async Task<IEnumerable<Users>> GetAllEmailAsync()

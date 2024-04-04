@@ -38,6 +38,20 @@ namespace AccountingBook.Repository
             return stockCode;
         }
 
+        public async Task<int> GetBlanceByDateAndCodeAsync(string stockCode, DateTime transactionDate)
+        {
+            // 使用 Dapper 執行參數化查詢
+            var Balance = await _dbConnection.QueryFirstOrDefaultAsync<int?>(
+                "SELECT TOP 1 Balance FROM StockTransactions WHERE StockCode = @stockCode " +
+                "AND TransactionDate =@transactionDate ORDER BY TransactionId DESC",
+                new { stockCode = stockCode,
+                      transactionDate = transactionDate
+                    }
+            
+            );
+            
+            return Balance.GetValueOrDefault(0);
+        }
         public async Task<IEnumerable<StockTransactions>> GetInfoByProfitAsync()
         {
             // 使用 Dapper 執行參數化查詢

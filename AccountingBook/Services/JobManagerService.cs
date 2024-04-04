@@ -54,7 +54,7 @@ namespace AccountingBook.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             //UpdateProfit();
-            UpdateStockTransactions();
+            //UpdateStockTransactions();
             //UpdateStockPricesAsync();
             //JobManager.AddJob(() => UpdateStockTransactions(), s => s.ToRunEvery(1).Days().At(13, 30));
             //JobManager.AddJob(() => UpdateStockPricesAsync(), s => s.ToRunEvery(1).Days().At(13, 30));

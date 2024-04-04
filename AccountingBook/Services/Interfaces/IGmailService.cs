@@ -17,5 +17,7 @@ public interface IGmailService
     Task<List<string>> GetAttachmentsInfoAsync(string userId, string messageId);
 
     Task<List<byte[]>> GetPdfAttachmentsAsync(string userId, string messageId);
+    Task<string> GetMessageSnippetAsync(string userId, string messageId);
+    
     Task SendEmail(string userEmail, List<StockTransactions> transaction);
 }

@@ -8,6 +8,7 @@ using Spire.Pdf.Texts;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -45,7 +46,9 @@ namespace AccountingBook.Services
                     WHERE TransactionDate = @TransactionDate
                     AND StockCode = @StockCode
                     AND StockName = @StockName
-                    AND TransactionName = @TransactionName",
+                    AND TransactionName = @TransactionName
+                    AND Balance = @Balance
+                    AND PurchasingPrice = @PurchasingPrice",
                     transaction);
 
                     if (existingTransaction == null)
@@ -71,7 +74,8 @@ namespace AccountingBook.Services
                                     WHERE TransactionDate = @TransactionDate
                                     AND StockCode = @StockCode
                                     AND StockName = @StockName
-                                    AND TransactionName = @TransactionName",
+                                    AND TransactionName = @TransactionName
+                                    AND Balance = @Balance",
                                     transaction);
                             isUpdated = true;
 
@@ -182,10 +186,16 @@ namespace AccountingBook.Services
                         allTextBuilder += text;
                     }
                     var t = JsonConvert.SerializeObject(allTextBuilder);
-                    string patternOrder = @"\d{4}/\d{2}/\d{2}\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                    string patternOrder1 = @"\d{4}/\d{2}/\d{2}\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                    var patternOrder2 = @"\d{4}/\d{2}/\d{2}\s+(\S+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     string patternStock = @"(\d+)\s+(\S+)\s+(\d+\.\d+)\s+(\d+)";
-                    var matcheOrder = Regex.Matches(t, patternOrder);
+                    var matcheOrder1 = Regex.Matches(t, patternOrder1);
+                    var matcheOrder2 = Regex.Matches(t, patternOrder2);
                     var matcheStock = Regex.Matches(t, patternStock);
+                    var matcheOrder = matcheOrder1.Cast<Match>().Concat(matcheOrder2.Cast<Match>());
+
+
+
 
                     foreach (Match match in matcheStock)
                     {
@@ -196,10 +206,14 @@ namespace AccountingBook.Services
                     foreach (Match match in matcheOrder)
                     {
                         var TransactionDateParts = match.Groups[0].Value.Split()[0];
+                        var transactionDate = new DateTime(int.Parse(TransactionDateParts.Split("/")[0]),
+                                                           int.Parse(TransactionDateParts.Split("/")[1]),
+                                                           int.Parse(TransactionDateParts.Split("/")[2])).Date;
                         var SplitMatch = match.Groups[0].Value.Split(" ", StringSplitOptions.RemoveEmptyEntries);
                         var StockName = SplitMatch[1];
                         var Memo = SplitMatch[2];
-                        var Withdrawal = SplitMatch[3];
+                        var quantity = SplitMatch[3];
+                        var Withdrawal = string.IsNullOrWhiteSpace(quantity) ? 0 : int.Parse(quantity);
                         var Fee = int.Parse(SplitMatch[6]);
                         var Tax = int.Parse(SplitMatch[7]);
                         var PurchasingPrice = decimal.Parse(SplitMatch[4]);
@@ -209,21 +223,39 @@ namespace AccountingBook.Services
                             stockCode = await _stockTransactionsRepository.GetStockCodeByStockNameAsync(StockName);
                         }
                         
-                        var Balance = 0;
+                        int Balance = 0;
                         if (StockBlanceDic.ContainsKey(StockName))
                         {
-                            Balance = StockBlanceDic[StockName];
+                            if (StockBlanceDic[StockName] == Withdrawal)
+                            {
+                                Balance = StockBlanceDic[StockName];
+                            }
+                            else 
+                            {
+                                
+                                if (transaction.StockName != StockName)
+                                {
+                                    Balance = Withdrawal;
+                                }
+                                
+                         
+                                else
+                                {
+                                    
+                                    Balance = transaction.Balance + Withdrawal;
+                                }
+                                
+                            }
+                            
                         }
 
                         transaction = new StockTransactions
                         {
-                            TransactionDate = new DateTime(int.Parse(TransactionDateParts.Split("/")[0]),
-                                                           int.Parse(TransactionDateParts.Split("/")[1]),
-                                                           int.Parse(TransactionDateParts.Split("/")[2])).Date,
+                            TransactionDate = transactionDate,
                             StockName = StockName,
                             StockCode = stockCode,
                             Memo = Memo,
-                            Withdrawal = string.IsNullOrWhiteSpace(Withdrawal) ? 0 : int.Parse(Withdrawal),
+                            Withdrawal = Withdrawal,
                             Balance = Balance,
                             TransactionName = userName,
                             PurchasingPrice = PurchasingPrice,
