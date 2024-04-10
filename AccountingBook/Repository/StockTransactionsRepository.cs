@@ -17,6 +17,11 @@ namespace AccountingBook.Repository
             _dbConnection = dbConnection;
         }
 
+        public async Task<IEnumerable<StockTransactions>> GetAllStockTransactionsAsync()
+        {
+            return await _dbConnection.QueryAsync<StockTransactions>("SELECT * FROM StockTransactions");
+        }
+
         public async Task<IEnumerable<StockTransactions>> GetAllUsersAsync()
         {
             return await _dbConnection.QueryAsync<StockTransactions>("SELECT * FROM Users");
@@ -44,14 +49,17 @@ namespace AccountingBook.Repository
             var Balance = await _dbConnection.QueryFirstOrDefaultAsync<int?>(
                 "SELECT TOP 1 Balance FROM StockTransactions WHERE StockCode = @stockCode " +
                 "AND TransactionDate =@transactionDate ORDER BY TransactionId DESC",
-                new { stockCode = stockCode,
-                      transactionDate = transactionDate
-                    }
-            
+                new
+                {
+                    stockCode = stockCode,
+                    transactionDate = transactionDate
+                }
+
             );
-            
+
             return Balance.GetValueOrDefault(0);
         }
+
         public async Task<IEnumerable<StockTransactions>> GetInfoByProfitAsync()
         {
             // 使用 Dapper 執行參數化查詢
@@ -59,6 +67,7 @@ namespace AccountingBook.Repository
                 "SELECT * FROM StockTransactions WHERE StockCode = @StockCode AND Profit IS NULL ORDER BY TransactionDate, TransactionId",
                 new { StockCode = "8085" });
         }
+
         public async Task UpdateIncomeProfitAsync(int depositTransactionId)
         {
             string query = @"UPDATE StockTransactions SET Profit = 0 WHERE TransactionId = @TransactionId";
@@ -69,25 +78,22 @@ namespace AccountingBook.Repository
         {
             string query = @"UPDATE StockTransactions SET Profit = @Profit WHERE TransactionId = @TransactionId";
             await _dbConnection.ExecuteAsync(query, new { Profit = profit, TransactionId = withdrawalTransactionId });
-            
         }
+
         public async Task<IEnumerable<StockTransactions>> GetInfoByDateAndUserAsync(DateTime startDate, DateTime endDate, String userName)
         {
             if (userName == null)
             {
-               
                 return await _dbConnection.QueryAsync<StockTransactions>(
                     "SELECT * FROM StockTransactions WHERE TransactionDate >= @StartDate AND TransactionDate <= @EndDate",
                     new { startDate = startDate, endDate = endDate });
             }
             else
             {
-             
                 return await _dbConnection.QueryAsync<StockTransactions>(
                     "SELECT * FROM StockTransactions WHERE TransactionDate >= @StartDate AND TransactionDate <= @EndDate AND UserName = @userName",
                     new { startDate = startDate, endDate = endDate, userName = userName });
             }
-            
         }
     }
 }

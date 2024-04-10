@@ -27,17 +27,16 @@ namespace AccountingBook
             services.AddLogging();
             services.AddSwaggerGen();
             services.AddHttpClient();
-            services.AddSingleton<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
-            services.AddSingleton<IUserStockRepository, UserStockRepository>();
-            services.AddSingleton<IUserStockService, UserStockService>();
-            services.AddSingleton<IStockRepository, StockRepository>();
-            services.AddSingleton<StockService>();
-            services.AddSingleton<UserRepository>();
-            services.AddSingleton<StockTransactionsRepository>();
-            //services.AddHostedService<UpdateClosingPriceService>();
+            services.AddTransient<IDbConnection>(c => new SqlConnection(Configuration.GetConnectionString("StockDatabase")));
+            services.AddTransient<IUserStockRepository, UserStockRepository>();
+            services.AddTransient<IUserStockService, UserStockService>();
+            services.AddTransient<IStockRepository, StockRepository>();
+            services.AddTransient<StockService>();
+            services.AddTransient<UserRepository>();
+            services.AddTransient<StockTransactionsRepository>();
             services.AddHostedService<JobManagerService>();
-            services.AddSingleton<IPDFService, PDFService>();
-            services.AddSingleton<IGmailService, MailService>();
+            services.AddTransient<IPDFService, PDFService>();
+            services.AddTransient<IGmailService, MailService>();
             services.AddControllers();
         }
 

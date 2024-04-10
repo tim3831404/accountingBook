@@ -58,7 +58,7 @@ namespace AccountingBook.Services
             //UpdateStockPricesAsync();
             //JobManager.AddJob(() => UpdateStockTransactions(), s => s.ToRunEvery(1).Days().At(13, 30));
             //JobManager.AddJob(() => UpdateStockPricesAsync(), s => s.ToRunEvery(1).Days().At(13, 30));
-
+            _logger.LogError($"Start JobManagerService ExecuteAsync");
             while (!stoppingToken.IsCancellationRequested)
             {
                 // 在這裡可以處理其他背景任務的邏輯
