@@ -21,7 +21,6 @@ namespace AccountingBook.Services
         private readonly IConfiguration _configuration;
         private readonly UserRepository _userRepository;
         private readonly StockTransactionsRepository _stockTransactionsRepository;
-        
 
         public PDFService(IConfiguration configuration,
                           UserRepository userRepository,
@@ -78,13 +77,11 @@ namespace AccountingBook.Services
                                     AND Balance = @Balance",
                                     transaction);
                             isUpdated = true;
-
                         }
                     }
                 }
                 return isUpdated;
             }
-                
         }
 
         public async Task<List<StockTransactions>> ExtractTextFromPdfAsync(string filePath, string userName, byte[] attachments)
@@ -119,7 +116,7 @@ namespace AccountingBook.Services
                         PdfTextExtractor extractedText = new PdfTextExtractor(page);
                         var text = extractedText.ExtractText(extractOptions);
                         text = Regex.Replace(text, ",", "");
-                        allTextBuilder+=text;
+                        allTextBuilder += text;
                     }
                     var t = JsonConvert.SerializeObject(allTextBuilder);
                     //remove watermark
@@ -176,7 +173,6 @@ namespace AccountingBook.Services
                 {
                     Dictionary<string, string> StockCodeDic = new Dictionary<string, string>();
                     Dictionary<string, int> StockBlanceDic = new Dictionary<string, int>();
-                    
 
                     foreach (PdfPageBase page in pdfDocument.Pages)
                     {
@@ -193,9 +189,6 @@ namespace AccountingBook.Services
                     var matcheOrder2 = Regex.Matches(t, patternOrder2);
                     var matcheStock = Regex.Matches(t, patternStock);
                     var matcheOrder = matcheOrder1.Cast<Match>().Concat(matcheOrder2.Cast<Match>());
-
-
-
 
                     foreach (Match match in matcheStock)
                     {
@@ -217,37 +210,6 @@ namespace AccountingBook.Services
                         var Fee = int.Parse(SplitMatch[6]);
                         var Tax = int.Parse(SplitMatch[7]);
                         var PurchasingPrice = decimal.Parse(SplitMatch[4]);
-                        string stockCode;
-                        if (!StockCodeDic.TryGetValue(StockName, out stockCode))
-                        {
-                            stockCode = await _stockTransactionsRepository.GetStockCodeByStockNameAsync(StockName);
-                        }
-                        
-                        int Balance = 0;
-                        if (StockBlanceDic.ContainsKey(StockName))
-                        {
-                            if (StockBlanceDic[StockName] == Withdrawal)
-                            {
-                                Balance = StockBlanceDic[StockName];
-                            }
-                            else 
-                            {
-                                
-                                if (transaction.StockName != StockName)
-                                {
-                                    Balance = Withdrawal;
-                                }
-                                
-                         
-                                else
-                                {
-                                    
-                                    Balance = transaction.Balance + Withdrawal;
-                                }
-                                
-                            }
-                            
-                        }
 
                         transaction = new StockTransactions
                         {
@@ -256,7 +218,6 @@ namespace AccountingBook.Services
                             StockCode = stockCode,
                             Memo = Memo,
                             Withdrawal = Withdrawal,
-                            Balance = Balance,
                             TransactionName = userName,
                             PurchasingPrice = PurchasingPrice,
                             Fee = Fee,
@@ -275,11 +236,10 @@ namespace AccountingBook.Services
                     }
                     pdfDocument.Close();
                 }
-                else if(BankSource.Contains("新光證券"))
+                else if (BankSource.Contains("新光證券"))
                 {
                     Dictionary<string, string> StockCodeDic = new Dictionary<string, string>();
                     Dictionary<string, int> StockBlanceDic = new Dictionary<string, int>();
-                    
 
                     foreach (PdfPageBase page in pdfDocument.Pages)
                     {
@@ -287,9 +247,8 @@ namespace AccountingBook.Services
                         allTextBuilder += extractedText.ExtractText(extractOptions);
                         allTextBuilder = Regex.Replace(allTextBuilder, ",", "");
                         allTextBuilder = JsonConvert.SerializeObject(allTextBuilder);
-                        
                     }
-                    
+
                     var patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     var patternStock = @"(\d{4,})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     var patternDeliveryDate = @"以下是\s+(\d{4})\s+(\S+)\s+(\d{2})\s+(\S+)\s+(\d{2})\s+(\S+)";
