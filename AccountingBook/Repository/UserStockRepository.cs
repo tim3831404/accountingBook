@@ -1,6 +1,6 @@
 ﻿// 在 Repository 目錄中建立 UserStockRepository.cs
-using AccountingBook.Interfaces;
 using AccountingBook.Models;
+using AccountingBook.Repository.Interfaces;
 using Dapper;
 using System.Collections.Generic;
 using System.Data;

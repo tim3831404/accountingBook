@@ -1,6 +1,6 @@
-﻿using AccountingBook.Interfaces;
-using AccountingBook.Models;
+﻿using AccountingBook.Models;
 using AccountingBook.Repository;
+using AccountingBook.Repository.Interfaces;
 using Dapper;
 using FluentScheduler;
 using Google.Apis.Gmail.v1.Data;
@@ -53,7 +53,6 @@ namespace AccountingBook.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            //UpdateProfit();
             //UpdateStockTransactions();
             //UpdateStockPricesAsync();
             //JobManager.AddJob(() => UpdateStockTransactions(), s => s.ToRunEvery(1).Days().At(13, 30));
@@ -125,7 +124,6 @@ namespace AccountingBook.Services
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var stockRepository = scope.ServiceProvider.GetRequiredService<IStockRepository>();
-
 
                     var allStocks = await stockRepository.GetAllStocksAsync();
 
@@ -205,12 +203,9 @@ namespace AccountingBook.Services
 
         public async Task UpdateProfit()
         {
-
             var transactions = await _stockTransactionsRepository.GetInfoByProfitAsync();
             foreach (var transaction in transactions)
             {
-                
-               
                 if (transaction.Withdrawal != 0)
                 {
                     var purchasingInfo = transactions.Where
@@ -232,15 +227,12 @@ namespace AccountingBook.Services
                         profit += Convert.ToInt32(income - outcome);
                         await _stockTransactionsRepository.UpdateIncomeProfitAsync(purchasingInfo[purchasingInfoCount].TransactionId);
                         purchasingInfo[purchasingInfoCount].Profit = 0;
-                        purchasingInfoCount ++;
-
+                        purchasingInfoCount++;
                     }
                     profit -= Convert.ToInt32(transaction.Fee + transaction.Tax);
                     transaction.Profit = profit;
                     await _stockTransactionsRepository.UpdateOutcomeProfitAsync(transaction.TransactionId, profit);
                 }
-
-
             }
         }
     }

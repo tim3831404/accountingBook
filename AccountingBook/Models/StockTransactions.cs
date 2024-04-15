@@ -17,5 +17,7 @@ namespace AccountingBook.Models
         public int? Fee { get; set; }
         public int? Tax { get; set; }
         public int? Profit { get; set; }
+        public bool IsSell { get; set; } = false;
+        public decimal totalcost { get; set; }
     }
 }

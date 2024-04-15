@@ -210,7 +210,7 @@ namespace AccountingBook.Services
                         var Fee = int.Parse(SplitMatch[6]);
                         var Tax = int.Parse(SplitMatch[7]);
                         var PurchasingPrice = decimal.Parse(SplitMatch[4]);
-
+                        var stockCode = StockCodeDic[StockName];
                         transaction = new StockTransactions
                         {
                             TransactionDate = transactionDate,
@@ -249,15 +249,13 @@ namespace AccountingBook.Services
                         allTextBuilder = JsonConvert.SerializeObject(allTextBuilder);
                     }
 
-                    var patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                    var patternOrder1 = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+\.\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
+                    var patternOrder2 = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     var patternStock = @"(\d{4,})\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)";
                     var patternDeliveryDate = @"以下是\s+(\d{4})\s+(\S+)\s+(\d{2})\s+(\S+)\s+(\d{2})\s+(\S+)";
-                    var matcheOrder = Regex.Matches(allTextBuilder, patternOrder);
-                    if (matcheOrder.Count == 0)
-                    {
-                        patternOrder = @"\d{2}/\d{2}\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(\d+)\s+(\d+)\s+(\d+)";
-                        matcheOrder = Regex.Matches(allTextBuilder, patternOrder);
-                    }
+                    var matcheOrder1 = Regex.Matches(allTextBuilder, patternOrder1);
+                    var matcheOrder2 = Regex.Matches(allTextBuilder, patternOrder2);
+                    var matcheOrder = matcheOrder1.Cast<Match>().Concat(matcheOrder2.Cast<Match>());
                     var matcheStock = Regex.Matches(allTextBuilder, patternStock);
                     var DeliveryDate = Regex.Matches(allTextBuilder, patternDeliveryDate);
 

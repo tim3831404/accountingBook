@@ -1,5 +1,5 @@
-﻿using AccountingBook.Interfaces;
-using AccountingBook.Models;
+﻿using AccountingBook.Models;
+using AccountingBook.Repository.Interfaces;
 using Newtonsoft.Json;
 using System.Linq;
 using System.Net;

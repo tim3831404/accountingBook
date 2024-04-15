@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace AccountingBook.Interfaces
+namespace AccountingBook.Repository.Interfaces
 {
     public interface IUserStockRepository
     {

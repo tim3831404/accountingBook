@@ -1,6 +1,8 @@
 using AccountingBook.Interfaces;
 using AccountingBook.Repository;
+using AccountingBook.Repository.Interfaces;
 using AccountingBook.Services;
+using AccountingBook.Services.Interfaces;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -37,6 +39,8 @@ namespace AccountingBook
             services.AddHostedService<JobManagerService>();
             services.AddTransient<IPDFService, PDFService>();
             services.AddTransient<IGmailService, MailService>();
+            services.AddTransient<IUpdateStockService, UpdateStockService>();
+
             services.AddControllers();
         }
 

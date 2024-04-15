@@ -1,7 +1,8 @@
-﻿using AccountingBook.Interfaces;
-using AccountingBook.Models;
+﻿using AccountingBook.Models;
 using AccountingBook.Repository;
+using AccountingBook.Repository.Interfaces;
 using AccountingBook.Services;
+using AccountingBook.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -19,15 +20,18 @@ namespace AccountingBook.Controllers
     {
         private readonly StockTransactionsRepository _stockTransactionsRepository;
         private readonly IStockRepository _stockRepository;
+        private readonly IUpdateStockService _updateStockService;
 
         public StockController(StockTransactionsRepository stockTransactionsRepository,
-                                IStockRepository stockRepository)
+                                IStockRepository stockRepository,
+                                IUpdateStockService updateStockService)
         {
             _stockTransactionsRepository = stockTransactionsRepository;
             _stockRepository = stockRepository;
+            _updateStockService = updateStockService;
         }
 
-        [HttpGet("StockTransactions")]
+        [HttpGet("StockRawData")]
         public async Task<ActionResult<IEnumerable<StockTransactions>>> GetAllStockTransactionsAsync()
         {
             try
@@ -42,16 +46,16 @@ namespace AccountingBook.Controllers
             }
         }
 
-        [HttpGet("StockBlance")]
-        public async Task<ActionResult<IEnumerable<StockTransactions>>> GetAllStockStockBlanceAsync()
+        [HttpPost("StockAllInfo")]
+        public async Task<ActionResult<IEnumerable<StockTransactions>>> GetAllStockStockBlanceProfitAsync(string stockCode)
         {
             try
             {
                 var stockInfo = await _stockTransactionsRepository.GetAllStockTransactionsAsync();
-                var sortedStockInfo = stockInfo.OrderBy(s => s.TransactionDate)
+                var sortedStockInfo = stockInfo.OrderBy(s => s.StockName)
+                                               .ThenBy(s => s.TransactionDate)
                                                .ThenBy(s => s.TransactionName)
-                                               .ThenBy(s => s.StockName)
-                                               .Where(s => s.TransactionName == "吳瑞庭" && s.StockCode == "3372")
+                                               .Where(s => s.TransactionName == "吳瑞庭" && s.StockCode == stockCode)
                                                .ToList();
                 for (int i = 0; i < sortedStockInfo.Count; i++)
                 {
@@ -78,20 +82,80 @@ namespace AccountingBook.Controllers
                     }
 
                     sortedStockInfo[i].Balance = balance;
-                    sortedStockInfo[i].Profit = profit;
                 }
 
-                for (int i = 0; i < sortedStockInfo.Count; i++)
+                foreach (var transaction in sortedStockInfo)
                 {
-                    if (sortedStockInfo[i].Withdrawal != 0)
+                    if (transaction.Withdrawal != 0)
                     {
-                        var sortedCodeStockInfo = sortedStockInfo
-                                                  .Where(c => c.StockCode == sortedStockInfo[i].StockCode
-                                                   && c.Profit == null)
-                                                  .FirstOrDefault();
+                        var purchasingInfo = sortedStockInfo.Where
+                                                            (t => t.StockCode ==
+                                                            transaction.StockCode
+                                                            && t.Withdrawal == 0
+                                                            && t.IsSell == false
+                                                            && t.Profit == null).ToList();
+                        var profit = 0;
+                        var totalDeposit = 0;
+                        var purchasingInfoCount = 0;
+                        while (transaction.Withdrawal != totalDeposit && purchasingInfoCount < purchasingInfo.Count)
+                        {
+                            var purchasingPrice = purchasingInfo[purchasingInfoCount].PurchasingPrice;
+                            var deposit = purchasingInfo[purchasingInfoCount].Deposit;
+                            totalDeposit += deposit;
+                            var income = (transaction.PurchasingPrice - purchasingPrice) * deposit;
+                            var outcome = purchasingInfo[purchasingInfoCount].Fee;
+                            profit += Convert.ToInt32(income - outcome);
+                            purchasingInfo[purchasingInfoCount].IsSell = true;
+                            transaction.IsSell = true;
+                            purchasingInfoCount++;
+                        }
+                        profit -= Convert.ToInt32(transaction.Fee + transaction.Tax);
+                        transaction.Profit = profit;
                     }
                 }
                 return Ok(sortedStockInfo);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpGet("Inventory")]
+        public async Task<ActionResult<IEnumerable<StockTransactions>>> GetAllStockInventorytionsAsync()
+        {
+            try
+            {
+                var stockInfoActionResults = await GetAllStockStockBlanceProfitAsync("006208");
+
+                if (stockInfoActionResults.Result is OkObjectResult)
+                {
+                    var stockInfo = (stockInfoActionResults.Result as OkObjectResult).Value as IEnumerable<StockTransactions>;
+                    var sortedInfo = stockInfo.Where(c => c.IsSell == false)
+                                              .GroupBy(s => s.StockName)
+                                              .Select(g => new
+                                              {
+                                                  StockName = g.Key,
+                                                  StockCode = g.First().StockCode,
+                                                  TotalCost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit + s.Fee),
+                                                  Balance = g.Max(s => s.Balance)
+                                              })
+                                              .Select(s => new
+                                              {
+                                                  s.StockName,
+                                                  s.StockCode,
+                                                  s.Balance,
+                                                  Price = s.TotalCost / s.Balance,
+                                                  ClosingPrice = _updateStockService.UpdateColesingkPricesAsync(s.StockCode).Result,
+                                                  s.TotalCost,
+                                                  Profit = _updateStockService.UpdateColesingkPricesAsync(s.StockCode).Result * s.Balance - (int)(s.TotalCost * 1.0037),
+                                              });
+                    return Ok(sortedInfo);
+                }
+                else
+                {
+                    return stockInfoActionResults.Result;
+                }
             }
             catch (Exception ex)
             {

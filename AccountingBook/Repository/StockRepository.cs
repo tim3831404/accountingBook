@@ -1,5 +1,5 @@
-﻿using AccountingBook.Interfaces;
-using AccountingBook.Models;
+﻿using AccountingBook.Models;
+using AccountingBook.Repository.Interfaces;
 using Dapper;
 using System.Collections.Generic;
 using System.Data;
