@@ -27,7 +27,7 @@ public class MailService : IGmailService
     private readonly string ApplicationName = "AccountingBook";
     private readonly string SecretFilePath = @"D:\ASP\AccountingBook\Secret";
     private string RedirectUri = $"https://localhost:5001/api/gmail/gettoken";
-    private string Username = "k3831404@gmail.com";
+    private string Username = "yan6216@gmail.com";
     private readonly UserRepository _userRepository;
     private readonly IPDFService _pDFService;
 
@@ -44,7 +44,6 @@ public class MailService : IGmailService
         using (var stream =
             new FileStream(Path.Combine(SecretFilePath, $"client_secret_{Username}.json"), FileMode.Open, FileAccess.Read))
         {
-
             var tesat = test.caculateAdd();
             string credPath = @"D:\ASP\AccountingBook\token.json";
             FileDataStore dataStore = null;
@@ -290,13 +289,8 @@ public class MailService : IGmailService
             var matcheOrder = Regex.Matches(StockInfo, patternOrder);
         }
 
-
-        
-        
-
         return StockInfo;
     }
-
 
     public async Task SendEmail(string userEmail, List<StockTransactions> updatedContents)
     {
@@ -305,7 +299,7 @@ public class MailService : IGmailService
             var service = GetGmailService(userEmail);
             var subject = "StockTransactions has been updated";
             var body = new StringBuilder();
-            foreach (var updatedContent  in updatedContents) 
+            foreach (var updatedContent in updatedContents)
             {
                 body.Append(updatedContent.TransactionDate.ToShortDateString());
                 body.Append(updatedContent.StockName);
@@ -315,11 +309,10 @@ public class MailService : IGmailService
                 {
                     body.AppendLine(updatedContent.Withdrawal.ToString());
                 }
-                
                 else
                 {
                     body.AppendLine(updatedContent.Deposit.ToString());
-                }              
+                }
             }
             var message = new Message
             {
@@ -333,6 +326,7 @@ public class MailService : IGmailService
             Console.WriteLine($"Failed to send email: {ex.Message}");
         }
     }
+
     private string Base64UrlEncode(string input)
     {
         var inputBytes = System.Text.Encoding.UTF8.GetBytes(input);

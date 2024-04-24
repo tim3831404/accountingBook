@@ -19,5 +19,6 @@ namespace AccountingBook.Models
         public int? Profit { get; set; }
         public bool IsSell { get; set; } = false;
         public decimal totalcost { get; set; }
+        public decimal? totalProfit { get; set; }
     }
 }

@@ -210,7 +210,9 @@ namespace AccountingBook.Services
                         var Fee = int.Parse(SplitMatch[6]);
                         var Tax = int.Parse(SplitMatch[7]);
                         var PurchasingPrice = decimal.Parse(SplitMatch[4]);
-                        var stockCode = StockCodeDic[StockName];
+                        var stockCode = StockCodeDic.ContainsKey(StockName) ?
+                            StockCodeDic[StockName] : await _stockTransactionsRepository.GetStockCodeByStockNameAsync(StockName);
+
                         transaction = new StockTransactions
                         {
                             TransactionDate = transactionDate,
