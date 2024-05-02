@@ -195,5 +195,79 @@ namespace AccountingBook.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+        [HttpPost("RealizedProfit")]
+        public async Task<ActionResult<IEnumerable<StockTransactions>>> GetRealizedProfitAsync(string name, string stockCode, DateTime startDate, DateTime endDate)
+        {
+            try
+            {
+                var stockInfoActionResults = await GetAllStockStockBlanceProfitAsync(name, stockCode);
+                if (stockInfoActionResults.Result is OkObjectResult)
+                {
+                    var stockInfo = (stockInfoActionResults.Result as OkObjectResult).Value as IEnumerable<StockTransactions>;
+
+                    var sortedInfo = stockInfo.Where(c =>
+                                                c.IsSell == true &&
+                                                c.Withdrawal == 0)
+                                         .GroupBy(s => new { s.StockCode, s.TransactionName })
+                                         .Select(g => new
+                                         {
+                                             TransactionName = g.Key.TransactionName,
+                                             StockCode = g.Key.StockCode,
+                                             StockName = g.First().StockName,
+                                             Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
+                                             Fee = (int)g.Sum(s => s.Fee),
+                                             Balance = (int)g.Max(s => s.Balance),
+                                         })
+                                          .Select(s => new
+                                          {
+                                              s.TransactionName,
+                                              s.StockName,
+                                              s.StockCode,
+                                              s.Balance,
+                                              buyPrice = ((double)s.Cost / s.Balance).ToString("N2"),
+                                              TotalCost = s.Cost + s.Fee,
+                                              Profit =
+                                              stockInfo.Where(c => c.TransactionDate >= startDate &&
+                                                c.TransactionDate <= endDate &&
+                                                c.IsSell == true &&
+                                                c.Withdrawal != 0 &&
+                                                c.StockCode == s.StockCode &&
+                                                c.TransactionName == s.TransactionName)
+                                                 .Sum(a => a.Profit),
+                                              //sellPrice =
+                                              //  (decimal?)stockInfo.Where(c => c.TransactionDate >= startDate &&
+                                              //  c.TransactionDate <= endDate &&
+                                              //  c.IsSell == true &&
+                                              //  c.Withdrawal != 0 &&
+                                              //  c.StockCode == s.StockCode)
+                                              //   .FirstOrDefault()?.PurchasingPrice ?? 0m
+                                          })
+                                          .Where(c => c.Profit != 0)
+                                          .ToList();
+
+                    var totalCost = sortedInfo.Sum(s => s.TotalCost);
+                    var totalProfit = sortedInfo.Sum(s => s.Profit);
+                    sortedInfo.Add(new
+                    {
+                        TransactionName = "Total",
+                        StockName = "Total",
+                        StockCode = "Total",
+                        Balance = 0,
+                        buyPrice = "null",
+                        //sellPrice = (decimal?)0m,
+                        TotalCost = totalCost,
+                        Profit = (int?)totalProfit
+                    });
+
+                    return Ok(sortedInfo);
+                }
+                else { return stockInfoActionResults.Result; }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
     }
 }
