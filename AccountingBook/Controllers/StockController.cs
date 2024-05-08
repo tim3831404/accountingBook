@@ -4,15 +4,10 @@ using AccountingBook.Repository.Interfaces;
 using AccountingBook.Services;
 using AccountingBook.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
-using Org.BouncyCastle.Crypto.Generators;
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
-using System.Transactions;
 
 namespace AccountingBook.Controllers
 {
@@ -48,102 +43,108 @@ namespace AccountingBook.Controllers
             }
         }
 
-        [HttpPost("StockAllInfo")]
+        [HttpGet("StockAllInfo")]
         public async Task<ActionResult<IEnumerable<StockTransactions>>> GetAllStockStockBlanceProfitAsync(string name, string stockCode)
         {
             try
             {
                 var stockInfo = await _stockTransactionsRepository.GetAllStockTransactionsAsync();
 
-                if (name != null)
-                {
-                    stockInfo = stockInfo.Where(s => s.TransactionName == name).ToList();
-                }
+                //if (name != null)
+                //{
+                //    stockInfo = stockInfo.Where(s => s.TransactionName == name).ToList();
+                //}
 
-                if (stockCode != null)
-                {
-                    stockInfo = stockInfo.Where(s => s.StockCode == stockCode).ToList();
-                }
+                //if (stockCode != null)
+                //{
+                //    stockInfo = stockInfo.Where(s => s.StockCode == stockCode).ToList();
+                //}
 
-                var groupStockInfo = stockInfo
-                                       .OrderBy(s => s.StockCode)
-                                       .ThenBy(s => s.TransactionDate)
-                                       .GroupBy(s => s.TransactionName);
-
+                //var groupStockInfo = stockInfo
+                //                       .OrderBy(s => s.StockCode)
+                //                       .ThenBy(s => s.TransactionDate)
+                //                       .GroupBy(s => s.TransactionName);
+                var groupStockInfo = await _updateStockService.SortInfo(stockInfo, name, stockCode);
                 var res = new List<StockTransactions>();
                 foreach (var group in groupStockInfo)
                 {
                     var sortedStockInfo = group.ToList();
-                    for (int i = 0; i < sortedStockInfo.Count; i++)
-                    {
-                        var balance = 0;
-                        var profit = 0;
-                        if (i == 0)
-                        {
-                            balance = sortedStockInfo[i].Deposit - sortedStockInfo[i].Withdrawal;
-                            profit = 0;
-                        }
-                        else
-                        {
-                            var currentStock = sortedStockInfo[i];
-                            var previousStock = sortedStockInfo[i - 1];
-
-                            if (currentStock.StockCode == previousStock.StockCode)
-                            {
-                                balance = previousStock.Balance + currentStock.Deposit - currentStock.Withdrawal;
-                            }
-                            else
-                            {
-                                balance = sortedStockInfo[i].Deposit - sortedStockInfo[i].Withdrawal;
-                            }
-                        }
-
-                        sortedStockInfo[i].Balance = balance;
-                    }
-
-                    foreach (var transaction in sortedStockInfo)
-                    {
-                        if (transaction.Withdrawal != 0)
-                        {
-                            var purchasingInfo = sortedStockInfo.Where
-                                                                (t => t.StockCode ==
-                                                                transaction.StockCode
-                                                                && t.Withdrawal == 0
-                                                                && t.IsSell == false
-                                                                && t.Profit == null).ToList();
-                            var profit = 0;
-                            var totalDeposit = 0;
-                            var purchasingInfoCount = 0;
-
-                            while (transaction.Withdrawal != totalDeposit && purchasingInfoCount < purchasingInfo.Count) //
-                            {
-                                var purchasingPrice = purchasingInfo[purchasingInfoCount].PurchasingPrice;
-                                var deposit = purchasingInfo[purchasingInfoCount].Deposit; ;
-                                totalDeposit += deposit;
-
-                                decimal? income;
-                                if (transaction.Withdrawal < deposit)
-                                {
-                                    income = (transaction.PurchasingPrice - purchasingPrice) * transaction.Withdrawal;
-                                    deposit -= transaction.Withdrawal;
-                                }
-                                else
-                                {
-                                    income = (transaction.PurchasingPrice - purchasingPrice) * deposit;
-                                }
-
-                                var outcome = purchasingInfo[purchasingInfoCount].Fee;
-                                profit += Convert.ToInt32(income - outcome);
-                                purchasingInfo[purchasingInfoCount].IsSell = true;
-                                transaction.IsSell = true;
-                                purchasingInfoCount++;
-                            }
-                            profit -= Convert.ToInt32(transaction.Fee + transaction.Tax);
-                            transaction.Profit = profit;
-                        }
-                    }
+                    _updateStockService.GetBalanceAndProfitAsync(sortedStockInfo);
                     res.AddRange(sortedStockInfo);
                 }
+                //foreach (var group in groupStockInfo)
+                //{
+                //    var sortedStockInfo = group.ToList();
+                //    for (int i = 0; i < sortedStockInfo.Count; i++)
+                //    {
+                //        var balance = 0;
+                //        var profit = 0;
+                //        if (i == 0)
+                //        {
+                //            balance = sortedStockInfo[i].Deposit - sortedStockInfo[i].Withdrawal;
+                //            profit = 0;
+                //        }
+                //        else
+                //        {
+                //            var currentStock = sortedStockInfo[i];
+                //            var previousStock = sortedStockInfo[i - 1];
+
+                //            if (currentStock.StockCode == previousStock.StockCode)
+                //            {
+                //                balance = previousStock.Balance + currentStock.Deposit - currentStock.Withdrawal;
+                //            }
+                //            else
+                //            {
+                //                balance = sortedStockInfo[i].Deposit - sortedStockInfo[i].Withdrawal;
+                //            }
+                //        }
+
+                //        sortedStockInfo[i].Balance = balance;
+                //    }
+
+                //    foreach (var transaction in sortedStockInfo)
+                //    {
+                //        if (transaction.Withdrawal != 0)
+                //        {
+                //            var purchasingInfo = sortedStockInfo.Where
+                //                                                (t => t.StockCode ==
+                //                                                transaction.StockCode
+                //                                                && t.Withdrawal == 0
+                //                                                && t.IsSell == false
+                //                                                && t.Profit == null).ToList();
+                //            var profit = 0;
+                //            var totalDeposit = 0;
+                //            var purchasingInfoCount = 0;
+
+                //            while (transaction.Withdrawal != totalDeposit && purchasingInfoCount < purchasingInfo.Count) //
+                //            {
+                //                var purchasingPrice = purchasingInfo[purchasingInfoCount].PurchasingPrice;
+                //                var deposit = purchasingInfo[purchasingInfoCount].Deposit; ;
+                //                totalDeposit += deposit;
+
+                //                decimal? income;
+                //                if (transaction.Withdrawal < deposit)
+                //                {
+                //                    income = (transaction.PurchasingPrice - purchasingPrice) * transaction.Withdrawal;
+                //                    deposit -= transaction.Withdrawal;
+                //                }
+                //                else
+                //                {
+                //                    income = (transaction.PurchasingPrice - purchasingPrice) * deposit;
+                //                }
+
+                //                var outcome = purchasingInfo[purchasingInfoCount].Fee;
+                //                profit += Convert.ToInt32(income - outcome);
+                //                purchasingInfo[purchasingInfoCount].IsSell = true;
+                //                transaction.IsSell = true;
+                //                purchasingInfoCount++;
+                //            }
+                //            profit -= Convert.ToInt32(transaction.Fee + transaction.Tax);
+                //            transaction.Profit = profit;
+                //        }
+                //    }
+                //    res.AddRange(sortedStockInfo);
+                //}
                 return Ok(res);
             }
             catch (Exception ex)
@@ -152,7 +153,7 @@ namespace AccountingBook.Controllers
             }
         }
 
-        [HttpPost("Inventory")]
+        [HttpGet("Inventory")]
         public async Task<ActionResult<IEnumerable<StockTransactions>>> GetAllStockInventorytionsAsync(string name, string stockCode)
         {
             try
@@ -214,7 +215,7 @@ namespace AccountingBook.Controllers
             }
         }
 
-        [HttpPost("RealizedProfit")]
+        [HttpGet("RealizedProfit")]
         public async Task<ActionResult<IEnumerable<StockTransactions>>> GetRealizedProfitAsync(string name, string stockCode, DateTime startDate, DateTime endDate)
         {
             try

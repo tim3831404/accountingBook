@@ -3,6 +3,7 @@ using AccountingBook.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -79,6 +80,96 @@ namespace AccountingBook.Services
             }
 
             return (closingPrice);
+        }
+
+        public async Task<IEnumerable<IGrouping<string, StockTransactions>>>
+            SortInfo(IEnumerable<StockTransactions> stockInfo, string name, string stockCode)
+        {
+            if (name != null)
+            {
+                stockInfo = stockInfo.Where(s => s.TransactionName == name).ToList();
+            }
+
+            if (stockCode != null)
+            {
+                stockInfo = stockInfo.Where(s => s.StockCode == stockCode).ToList();
+            }
+
+            var groupStockInfo = stockInfo
+                                   .OrderBy(s => s.StockCode)
+                                   .ThenBy(s => s.TransactionDate)
+                                   .GroupBy(s => s.TransactionName);
+            return groupStockInfo;
+        }
+
+        public async Task GetBalanceAndProfitAsync(List<StockTransactions> transactions)
+        {
+            int balance = 0;
+            int profit = 0;
+
+            for (int i = 0; i < transactions.Count; i++)
+            {
+                if (i == 0)
+                {
+                    balance = transactions[i].Deposit - transactions[i].Withdrawal;
+                    profit = 0;
+                }
+                else
+                {
+                    var currentStock = transactions[i];
+                    var previousStock = transactions[i - 1];
+
+                    balance = currentStock.StockCode == previousStock.StockCode ?
+                              previousStock.Balance + currentStock.Deposit - currentStock.Withdrawal :
+                              transactions[i].Deposit - transactions[i].Withdrawal;
+                }
+
+                transactions[i].Balance = balance;
+
+                await GeteProfitAsync(transactions[i], transactions);
+            }
+        }
+
+        private async Task GeteProfitAsync(StockTransactions transaction, List<StockTransactions> transactions)
+        {
+            if (transaction.Withdrawal != 0)
+            {
+                var purchasingInfo = transactions.Where
+                                                    (t => t.StockCode ==
+                                                    transaction.StockCode
+                                                    && t.Withdrawal == 0
+                                                    && t.IsSell == false
+                                                    && t.Profit == null).ToList();
+                var profit = 0;
+                var totalDeposit = 0;
+                var purchasingInfoCount = 0;
+
+                while (transaction.Withdrawal != totalDeposit && purchasingInfoCount < purchasingInfo.Count) //
+                {
+                    var purchasingPrice = purchasingInfo[purchasingInfoCount].PurchasingPrice;
+                    var deposit = purchasingInfo[purchasingInfoCount].Deposit; ;
+                    totalDeposit += deposit;
+
+                    decimal? income;
+                    if (transaction.Withdrawal < deposit)
+                    {
+                        income = (transaction.PurchasingPrice - purchasingPrice) * transaction.Withdrawal;
+                        deposit -= transaction.Withdrawal;
+                    }
+                    else
+                    {
+                        income = (transaction.PurchasingPrice - purchasingPrice) * deposit;
+                    }
+
+                    var outcome = purchasingInfo[purchasingInfoCount].Fee;
+                    profit += Convert.ToInt32(income - outcome);
+                    purchasingInfo[purchasingInfoCount].IsSell = true;
+                    transaction.IsSell = true;
+                    purchasingInfoCount++;
+                }
+                profit -= Convert.ToInt32(transaction.Fee + transaction.Tax);
+                transaction.Profit = profit;
+            }
         }
     }
 }

@@ -44,7 +44,6 @@ public class MailService : IGmailService
         using (var stream =
             new FileStream(Path.Combine(SecretFilePath, $"client_secret_{Username}.json"), FileMode.Open, FileAccess.Read))
         {
-            var tesat = test.caculateAdd();
             string credPath = @"D:\ASP\AccountingBook\token.json";
             FileDataStore dataStore = null;
             var credentialRoot = Path.Combine(SecretFilePath, "Credentials");
