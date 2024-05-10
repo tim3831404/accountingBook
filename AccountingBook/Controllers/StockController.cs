@@ -163,45 +163,50 @@ namespace AccountingBook.Controllers
                 if (stockInfoActionResults.Result is OkObjectResult)
                 {
                     var stockInfo = (stockInfoActionResults.Result as OkObjectResult).Value as IEnumerable<StockTransactions>;
-                    var sortedInfo = stockInfo.Where(c => c.IsSell == false)
-                                              .GroupBy(s => s.StockCode)
-                                              .Select(g => new
-                                              {
-                                                  StockCode = g.Key,
-                                                  StockName = g.First().StockName,
-                                                  Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
-                                                  Fee = (int)g.Sum(s => s.Fee),
-                                                  Balance = (int)stockInfo.Where(c => c.StockCode == g.Key)
-                                                            .OrderByDescending(c => c.TransactionDate)
-                                                            .FirstOrDefault().Balance,
-                                              })
-                                              .Select(s => new
-                                              {
-                                                  s.StockName,
-                                                  s.StockCode,
-                                                  s.Balance,
-                                                  Price = ((double)s.Cost / s.Balance).ToString("N2"),
-                                                  ClosingPrice = _updateStockService
-                                                                .UpdateColesingkPricesAsync(s.StockCode)
-                                                                .Result,
-                                                  TotalCost = s.Cost + s.Fee,
-                                                  Profit = _updateStockService
-                                                           .UpdateColesingkPricesAsync(s.StockCode).Result *
-                                                           s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
-                                              })
-                                              .ToList();
-                    var totalProfit = sortedInfo.Sum(s => s.Profit);
-                    var totalCost = sortedInfo.Sum(s => s.TotalCost);
-                    sortedInfo.Add(new
-                    {
-                        StockName = "Total",
-                        StockCode = "Total",
-                        Balance = 0,
-                        Price = "null",
-                        ClosingPrice = 0m,
-                        TotalCost = totalCost,
-                        Profit = totalProfit
-                    });
+                    var sortedInfo = _updateStockService.SortStockInventoryAsync(stockInfo);
+                    //var sortedInfo = stockInfo.Where(c => c.IsSell == false)
+                    //                          .GroupBy(s => new { s.StockCode, s.TransactionName })
+                    //                          .Select(g => new
+                    //                          {
+                    //                              StockCode = g.Key,
+                    //                              StockName = g.First().StockName,
+                    //                              TransactionName = g.First().TransactionName,
+                    //                              Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
+                    //                              Fee = (int)g.Sum(s => s.Fee),
+                    //                              Balance = (int)stockInfo.Where(c => c.StockCode == g.Key.StockCode &&
+                    //                                                                  c.TransactionName == g.Key.TransactionName)
+                    //                                        .OrderByDescending(c => c.TransactionDate)
+                    //                                        .FirstOrDefault().Balance,
+                    //                          })
+                    //                          .Select(s => new
+                    //                          {
+                    //                              s.TransactionName,
+                    //                              s.StockName,
+                    //                              s.StockCode.StockCode,
+                    //                              s.Balance,
+                    //                              Price = ((double)s.Cost / s.Balance).ToString("N2"),
+                    //                              ClosingPrice = _updateStockService
+                    //                                            .UpdateColesingkPricesAsync(s.StockCode.StockCode)
+                    //                                            .Result,
+                    //                              TotalCost = s.Cost + s.Fee,
+                    //                              Profit = _updateStockService
+                    //                                       .UpdateColesingkPricesAsync(s.StockCode.StockCode).Result *
+                    //                                       s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
+                    //                          })
+                    //                          .ToList();
+                    //var totalProfit = sortedInfo.Sum(s => s.Profit);
+                    //var totalCost = sortedInfo.Sum(s => s.TotalCost);
+                    //sortedInfo.Add(new
+                    //{
+                    //    TransactionName = "Total",
+                    //    StockName = "Total",
+                    //    StockCode = "Total",
+                    //    Balance = 0,
+                    //    Price = "null",
+                    //    ClosingPrice = 0m,
+                    //    TotalCost = totalCost,
+                    //    Profit = totalProfit
+                    //});
                     return Ok(sortedInfo);
                 }
                 else

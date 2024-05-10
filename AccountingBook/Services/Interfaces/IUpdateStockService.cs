@@ -13,5 +13,7 @@ namespace AccountingBook.Services.Interfaces
             SortInfo(IEnumerable<StockTransactions> stockInfo, string name, string stockCode);
 
         Task GetBalanceAndProfitAsync(List<StockTransactions> transactions);
+
+        Task<IEnumerable<object>> SortStockInventoryAsync(IEnumerable<StockTransactions> stockInfo);
     }
 }
