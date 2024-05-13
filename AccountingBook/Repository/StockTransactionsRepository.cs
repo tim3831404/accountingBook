@@ -1,14 +1,16 @@
 ﻿using AccountingBook.Models;
+using AccountingBook.Repository.Interfaces;
 using Dapper;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace AccountingBook.Repository
 {
-    public class StockTransactionsRepository
+    public class StockTransactionsRepository : IStockTransactionsRepository
     {
         private readonly IDbConnection _dbConnection;
 
@@ -19,7 +21,7 @@ namespace AccountingBook.Repository
 
         public async Task<IEnumerable<StockTransactions>> GetAllStockTransactionsAsync()
         {
-            return await _dbConnection.QueryAsync<StockTransactions>("SELECT * FROM StockTransactions");
+            return await _dbConnection.QueryAsync<StockTransactions>("SELECT TOP 10000 * FROM StockTransactions ORDER BY TransactionDate");
         }
 
         public async Task<IEnumerable<StockTransactions>> GetAllUsersAsync()
@@ -43,21 +45,20 @@ namespace AccountingBook.Repository
             return stockCode;
         }
 
-        public async Task<int> GetBlanceByDateAndCodeAsync(string stockCode, DateTime transactionDate)
+        public async Task<IEnumerable<StockTransactions>> GetInfoByStockCodeNameAsync(string name, string stockCode)
         {
-            // 使用 Dapper 執行參數化查詢
-            var Balance = await _dbConnection.QueryFirstOrDefaultAsync<int?>(
-                "SELECT TOP 1 Balance FROM StockTransactions WHERE StockCode = @stockCode " +
-                "AND TransactionDate =@transactionDate ORDER BY TransactionId DESC",
-                new
-                {
-                    stockCode = stockCode,
-                    transactionDate = transactionDate
-                }
+            var queryBuilder = new StringBuilder("SELECT * FROM StockTransactions WHERE 1=1");
+            if (!string.IsNullOrEmpty(name))
+            {
+                queryBuilder.Append(" AND TransactionName = @Name");
+            }
 
-            );
+            if (!string.IsNullOrEmpty(stockCode))
+            {
+                queryBuilder.Append(" AND StockCode = @StockCode");
+            }
 
-            return Balance.GetValueOrDefault(0);
+            return await _dbConnection.QueryAsync<StockTransactions>(queryBuilder.ToString(), new { Name = name, StockCode = stockCode });
         }
 
         public async Task<IEnumerable<StockTransactions>> GetInfoByProfitAsync()
