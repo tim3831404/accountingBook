@@ -4,6 +4,7 @@ namespace AccountingBook.Models
 {
     public class Dividends
     {
+        public string TransactionName { get; set; }
         public string StockCode { get; set; }
         public string StockName { get; set; }
         public DateTime PaymentDate { get; set; }

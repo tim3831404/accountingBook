@@ -37,6 +37,13 @@ namespace AccountingBook.Services
             _stockTransactionsRepository = stockTransactionsRepository;
         }
 
+        public async Task<IEnumerable<StockTransactions>> GetStockTransactions(DateTime startDate, DateTime endDate, String userName)
+
+        {
+            var stockInfo = await _stockTransactionsRepository.GetInfoByDateAndUserAsync(startDate, endDate, userName);
+            return stockInfo;
+        }
+
         public async Task<decimal> UpdateColesingkPricesAsync(string stockCode)
         {
             string updateMessage = "";
@@ -44,31 +51,31 @@ namespace AccountingBook.Services
             try
             {
                 {
-                    string tseCode = "tse_" + stockCode + ".tw";
-                    string otcCode = "otc_" + stockCode + ".tw";
-                    string urlTse = $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch={tseCode}";
-                    string urlOtc = $"https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch={otcCode}";
-                    //(拉到 mis.twse.com appSetting 處理 )
+                    var tseCode = "tse_" + stockCode + ".tw";
+                    var otcCode = "otc_" + stockCode + ".tw";
+                    var apiUrl = _configuration["StockSource:Url"];
+                    var urlTse = apiUrl + tseCode;
+                    var urlOtc = apiUrl + otcCode;
                     using (WebClient wClient = new WebClient())
                     {
                         wClient.Encoding = Encoding.UTF8;
                         string downloadedTseData = wClient.DownloadString(urlTse);
                         StockInfoResponse stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedTseData);
-                        String apiUrl = "";
+                        var apiSource = "";
                         if (stockInfoResponse.msgArray != null && stockInfoResponse.msgArray.Any())
                         {
-                            apiUrl = urlTse;
+                            apiSource = urlTse;
                         }
                         else
                         {
                             string downloadedOtcData = wClient.DownloadString(urlOtc);
                             stockInfoResponse = JsonConvert.DeserializeObject<StockInfoResponse>(downloadedOtcData);
-                            apiUrl = urlOtc;
+                            apiSource = urlOtc;
                         }
 
                         using (var httpClient = _httpClientFactory.CreateClient())
                         {
-                            var response = await httpClient.GetAsync(apiUrl);
+                            var response = await httpClient.GetAsync(apiSource);
 
                             if (response.IsSuccessStatusCode)
                             {
@@ -91,17 +98,8 @@ namespace AccountingBook.Services
         }
 
         public async Task<List<StockTransactions>>
-            SortInfo(string name, string stockCode)
+            CalculateBalanceProfit(string name, string stockCode)
         {
-            //if (name != null)
-            //{
-            //    stockInfo = stockInfo.Where(s => s.TransactionName == name).ToList();
-            //}
-
-            //if (stockCode != null)
-            //{
-            //    stockInfo = stockInfo.Where(s => s.StockCode == stockCode).ToList();
-            //}
             var stockInfo = await _stockTransactionsRepository.GetInfoByStockCodeNameAsync(name, stockCode);
             var groupStockInfo = stockInfo
                                    .OrderBy(s => s.StockCode)
@@ -127,17 +125,17 @@ namespace AccountingBook.Services
                 if (i == 0)
                 {
                     balance = transactions[i].Deposit - transactions[i].Withdrawal;
-                    transactions[i].Balance = balance;
-                    await GeteProfitAsync(transactions[i], transactions);
-                    return;
+                    profit = 0;
                 }
+                else
+                {
+                    var currentStock = transactions[i];
+                    var previousStock = transactions[i - 1];
 
-                var currentStock = transactions[i];
-                var previousStock = transactions[i - 1];
-
-                balance = currentStock.StockCode == previousStock.StockCode ?
-                          previousStock.Balance + currentStock.Deposit - currentStock.Withdrawal :
-                          transactions[i].Deposit - transactions[i].Withdrawal;
+                    balance = currentStock.StockCode == previousStock.StockCode ?
+                              previousStock.Balance + currentStock.Deposit - currentStock.Withdrawal :
+                              transactions[i].Deposit - transactions[i].Withdrawal;
+                }
 
                 transactions[i].Balance = balance;
 
@@ -187,10 +185,11 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<IEnumerable<object>> SortStockInventoryAsync(IEnumerable<StockTransactions> stockInfo)
+        public async Task<IEnumerable<object>> SortStockInventoryAsync(string name, string stockCode)
         {
             try
             {
+                var stockInfo = await CalculateBalanceProfit(name, stockCode);
                 var sortedInfo = stockInfo.Where(c => c.IsSell == false)
                                               .GroupBy(s => new { s.StockCode, s.TransactionName })
                                               .Select(g => new
@@ -241,11 +240,12 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<IEnumerable<object>> SortRealizedProfitAsync(IEnumerable<StockTransactions> stockInfo
+        public async Task<IEnumerable<object>> SortRealizedProfitAsync(string name, string stockCode
                                                                        , DateTime startDate, DateTime endDate)
         {
             try
             {
+                var stockInfo = await CalculateBalanceProfit(name, stockCode);
                 var sortedInfo = stockInfo.Where(c =>
                                                 c.IsSell == true &&
                                                 c.Withdrawal == 0)
@@ -299,10 +299,9 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<List<Dictionary<string, string>>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode)
+        public async Task<Dictionary<string, string>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode)
         {
-            var url = "https://api.finmindtrade.com/api/v4/data";
-
+            var apiUrl = _configuration["DividendSource:Url"];
             var parameters = new Dictionary<string, string>
         {
             { "dataset", "TaiwanStockDividend" },
@@ -311,12 +310,12 @@ namespace AccountingBook.Services
             { "data_id", stockCode }
         };
 
-            var response = await _httpClient.GetAsync(url + ToQueryString(parameters));
+            var response = await _httpClient.GetAsync(apiUrl + ToQueryString(parameters));
 
             var json = await response.Content.ReadAsStringAsync();
             var data = JsonConvert.DeserializeObject<dynamic>(json);
 
-            var div = new List<Dictionary<string, string>>();
+            var res = new List<Dictionary<string, string>>();
             foreach (var item in data["data"])
             {
                 var dict = new Dictionary<string, string>
@@ -327,13 +326,18 @@ namespace AccountingBook.Services
             };
                 if (!dict.ContainsValue(""))
                 {
-                    div.Add(dict);
+                    res.Add(dict);
                 }
             }
 
-            return div;
+            return res.FirstOrDefault();
         }
 
+        //public async Task<IEnumerable<Dividends>> CaculateDividendAsync()
+        //{
+        //    var res = new Dividends();
+        //    return res;
+        //}
         private string ToQueryString(Dictionary<string, string> parameters)
         {
             var queryString = string.Join("&", parameters.Select(kvp => $"{kvp.Key}={kvp.Value}"));
