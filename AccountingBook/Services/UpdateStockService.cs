@@ -10,7 +10,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace AccountingBook.Services
 {
@@ -97,8 +99,7 @@ namespace AccountingBook.Services
             return (closingPrice);
         }
 
-        public async Task<List<StockTransactions>>
-            CalculateBalanceProfit(string name, string stockCode)
+        public async Task<List<StockTransactions>> CalculateBalanceProfit(string name, string stockCode)
         {
             var stockInfo = await _stockTransactionsRepository.GetInfoByStockCodeNameAsync(name, stockCode);
             var groupStockInfo = stockInfo
@@ -115,7 +116,7 @@ namespace AccountingBook.Services
             return res;
         }
 
-        public async Task GetBalanceAndProfitAsync(List<StockTransactions> transactions)
+        private async Task GetBalanceAndProfitAsync(List<StockTransactions> transactions)
         {
             int balance = 0;
             int profit = 0;
@@ -299,7 +300,7 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<Dictionary<string, string>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode)
+        public async Task<List<Dictionary<string, string>>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode)
         {
             var apiUrl = _configuration["DividendSource:Url"];
             var parameters = new Dictionary<string, string>
@@ -320,7 +321,8 @@ namespace AccountingBook.Services
             {
                 var dict = new Dictionary<string, string>
             {
-                {"date", item["CashExDividendTradingDate"].ToString()},
+                {"CashExDividendTradingDate", item["CashExDividendTradingDate"].ToString()},
+                {"CashDividendPaymentDate", (item["CashDividendPaymentDate"]).ToString()},
                 {"Dividends", (item["CashEarningsDistribution"]+item["CashStatutorySurplus"]).ToString()},
                 {"StockEarnings", (item["StockEarningsDistribution"]*2).ToString()}
             };
@@ -330,18 +332,115 @@ namespace AccountingBook.Services
                 }
             }
 
-            return res.FirstOrDefault();
+            return res;
         }
 
-        //public async Task<IEnumerable<Dividends>> CaculateDividendAsync()
-        //{
-        //    var res = new Dividends();
-        //    return res;
-        //}
+        public async Task<List<Dividends>> CaculateDividendAsync(string name, string stockCode)
+        {
+            var nowDate = DateTime.Now.Date;
+            var res = new List<Dividends>();
+            var stockInfos = await CalculateBalanceProfit(name, stockCode);
+            var skipId = new List<int>();
+            StockTransactions shellInfo = null;
+            foreach (var stockInfo in stockInfos)
+            {
+                if (skipId.Count == 0)
+                {
+                    shellInfo = stockInfos.Where(x => x.Withdrawal != 0)
+                                          .OrderBy(x => x.TransactionDate)
+                                          .FirstOrDefault();
+                }
+                else
+                {
+                    shellInfo = stockInfos.Where(x => x.Withdrawal != 0 && !skipId.Contains(x.TransactionId))
+                                          .OrderBy(x => x.TransactionDate)
+                                          .FirstOrDefault();
+                }
+
+                var transactionDate = stockInfo.TransactionDate;
+                if (stockInfo.IsSell && stockInfo.Deposit > 0)
+                {
+                    var shellDate = shellInfo.TransactionDate;
+                    if (stockInfo.Balance == shellInfo.Withdrawal)
+                    {
+                        skipId.Add(shellInfo.TransactionId);
+                    }
+                    res.AddRange(await creatDividend(transactionDate, shellDate, stockInfo.StockCode, stockInfo, shellInfo));
+                }
+                else if (stockInfo.Deposit > 0)
+                {
+                    res.AddRange(await creatDividend(transactionDate, nowDate, stockInfo.StockCode, stockInfo, shellInfo));
+                }
+            }
+
+            return res;
+        }
+
         private string ToQueryString(Dictionary<string, string> parameters)
         {
             var queryString = string.Join("&", parameters.Select(kvp => $"{kvp.Key}={kvp.Value}"));
             return "?" + queryString;
+        }
+
+        private async Task<List<Dividends>> creatDividend(DateTime startDate, DateTime endDate, string stockCode, StockTransactions stockInfo, StockTransactions shellInfo)
+        {
+            var res = new List<Dividends>();
+            var sortDividend = await GetDividendAsync(startDate, endDate, stockCode);
+            if (shellInfo == null)
+            {
+                foreach (var dividendInfo in sortDividend)
+                {
+                    var dividend = new Dividends
+                    {
+                        TransactionDate = stockInfo.TransactionDate,
+                        TransactionName = stockInfo.TransactionName,
+                        StockCode = stockInfo.StockCode,
+                        StockName = stockInfo.StockName,
+                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
+                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
+                        AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
+                        AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * stockInfo.Deposit,
+                    };
+                    res.Add(dividend);
+                }
+            }
+            else if ((stockInfo.Deposit <= shellInfo.Withdrawal))
+            {
+                foreach (var dividendInfo in sortDividend)
+                {
+                    var dividend = new Dividends
+                    {
+                        TransactionDate = stockInfo.TransactionDate,
+                        TransactionName = stockInfo.TransactionName,
+                        StockCode = stockInfo.StockCode,
+                        StockName = stockInfo.StockName,
+                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
+                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
+                        AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
+                        AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * stockInfo.Deposit,
+                    };
+                    res.Add(dividend);
+                }
+            }
+            else
+            {
+                foreach (var dividendInfo in sortDividend)
+                {
+                    var dividend = new Dividends
+                    {
+                        TransactionDate = stockInfo.TransactionDate,
+                        TransactionName = stockInfo.TransactionName,
+                        StockCode = stockInfo.StockCode,
+                        StockName = stockInfo.StockName,
+                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
+                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
+                        AmountCash = decimal.Parse(dividendInfo["Dividends"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
+                        AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
+                    };
+                    res.Add(dividend);
+                }
+            }
+            return res;
         }
     }
 }

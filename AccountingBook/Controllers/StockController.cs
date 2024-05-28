@@ -6,6 +6,7 @@ using AccountingBook.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -56,16 +57,23 @@ namespace AccountingBook.Controllers
         }
 
         [HttpGet("QueryDividend")]
-        public async Task<ActionResult<Dictionary<string, string>>> GetDividendInfo(DateTime startDate, DateTime endDate, string stockCode)
+        public async Task<ActionResult<List<Dictionary<string, string>>>> GetDividendInfo(DateTime startDate, DateTime endDate, string stockCode)
         {
             var res = _updateStockService.GetDividendAsync(startDate, endDate, stockCode);
             return await res;
         }
 
-        [HttpPost("RealizedDividend")]
-        public async Task<ActionResult<Dictionary<string, string>>> GetRealizedDividend(DateTime startDate, DateTime endDate, string stockCode)
+        //[HttpPost("RealizedDividend")]
+        //public async Task<ActionResult<Dictionary<string, string>>> GetRealizedDividend(DateTime startDate, DateTime endDate, string stockCode)
+        //{
+        //    var res = _updateStockService.GetDividendAsync(startDate, endDate, stockCode);
+        //    return await res;
+        //}
+
+        [HttpPost("TestDividend")]
+        public async Task<List<Dividends>> GetRealizedDividend(string name, string stockCode)
         {
-            var res = _updateStockService.GetDividendAsync(startDate, endDate, stockCode);
+            var res = _updateStockService.CaculateDividendAsync(name, stockCode);
             return await res;
         }
     }
