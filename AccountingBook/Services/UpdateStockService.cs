@@ -2,15 +2,19 @@
 using AccountingBook.Repository;
 using AccountingBook.Repository.Interfaces;
 using AccountingBook.Services.Interfaces;
+using Dapper;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Transactions;
 
@@ -23,11 +27,15 @@ namespace AccountingBook.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly HttpClient _httpClient;
         private readonly IStockTransactionsRepository _stockTransactionsRepository;
+        private readonly IDividendsRepository _iDividendsRepository;
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(100, 100);
+        private static DateTime _resetTime = DateTime.UtcNow.AddHours(1);
 
         public UpdateStockService(
                             IServiceProvider serviceProvider,
                             IHttpClientFactory httpClientFactory,
                             IStockTransactionsRepository stockTransactionsRepository,
+                            IDividendsRepository iDividendsRepository,
                             IConfiguration configuration
                             )
         {
@@ -35,8 +43,8 @@ namespace AccountingBook.Services
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _stockTransactionsRepository = stockTransactionsRepository;
+            _iDividendsRepository = iDividendsRepository;
             _httpClient = httpClientFactory.CreateClient();
-            _stockTransactionsRepository = stockTransactionsRepository;
         }
 
         public async Task<IEnumerable<StockTransactions>> GetStockTransactions(DateTime startDate, DateTime endDate, String userName)
@@ -186,59 +194,52 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<IEnumerable<object>> SortStockInventoryAsync(string name, string stockCode)
+        public async Task<IEnumerable<object>> SumStockInventoryAsync(string name, string stockCode)
         {
-            try
+            var stockInfo = await CalculateBalanceProfit(name, stockCode);
+            var sortedInfo = stockInfo.Where(c => c.IsSell == false)
+                                          .GroupBy(s => new { s.StockCode, s.TransactionName })
+                                          .Select(g => new
+                                          {
+                                              StockCode = g.Key,
+                                              StockName = g.First().StockName,
+                                              TransactionName = g.First().TransactionName,
+                                              Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
+                                              Fee = (int)g.Sum(s => s.Fee),
+                                              Balance = (int)stockInfo.Where(c => c.StockCode == g.Key.StockCode &&
+                                                                                  c.TransactionName == g.Key.TransactionName)
+                                                        .OrderByDescending(c => c.TransactionDate)
+                                                        .FirstOrDefault().Balance,
+                                          })
+                                          .Select(s => new
+                                          {
+                                              s.TransactionName,
+                                              s.StockName,
+                                              s.StockCode.StockCode,
+                                              s.Balance,
+                                              Price = ((double)s.Cost / s.Balance).ToString("N2"),
+                                              ClosingPrice = UpdateColesingkPricesAsync(s.StockCode.StockCode)
+                                                            .Result,
+                                              TotalCost = s.Cost + s.Fee,
+                                              Profit = UpdateColesingkPricesAsync(s.StockCode.StockCode).Result *
+                                                       s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
+                                          })
+                                          .ToList();
+            var totalProfit = sortedInfo.Sum(s => s.Profit);
+            var totalCost = sortedInfo.Sum(s => s.TotalCost);
+            sortedInfo.Add(new
             {
-                var stockInfo = await CalculateBalanceProfit(name, stockCode);
-                var sortedInfo = stockInfo.Where(c => c.IsSell == false)
-                                              .GroupBy(s => new { s.StockCode, s.TransactionName })
-                                              .Select(g => new
-                                              {
-                                                  StockCode = g.Key,
-                                                  StockName = g.First().StockName,
-                                                  TransactionName = g.First().TransactionName,
-                                                  Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
-                                                  Fee = (int)g.Sum(s => s.Fee),
-                                                  Balance = (int)stockInfo.Where(c => c.StockCode == g.Key.StockCode &&
-                                                                                      c.TransactionName == g.Key.TransactionName)
-                                                            .OrderByDescending(c => c.TransactionDate)
-                                                            .FirstOrDefault().Balance,
-                                              })
-                                              .Select(s => new
-                                              {
-                                                  s.TransactionName,
-                                                  s.StockName,
-                                                  s.StockCode.StockCode,
-                                                  s.Balance,
-                                                  Price = ((double)s.Cost / s.Balance).ToString("N2"),
-                                                  ClosingPrice = UpdateColesingkPricesAsync(s.StockCode.StockCode)
-                                                                .Result,
-                                                  TotalCost = s.Cost + s.Fee,
-                                                  Profit = UpdateColesingkPricesAsync(s.StockCode.StockCode).Result *
-                                                           s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
-                                              })
-                                              .ToList();
-                var totalProfit = sortedInfo.Sum(s => s.Profit);
-                var totalCost = sortedInfo.Sum(s => s.TotalCost);
-                sortedInfo.Add(new
-                {
-                    TransactionName = "Total",
-                    StockName = "Total",
-                    StockCode = "Total",
-                    Balance = 0,
-                    Price = "null",
-                    ClosingPrice = 0m,
-                    TotalCost = totalCost,
-                    Profit = totalProfit
-                });
+                TransactionName = "Total",
+                StockName = "Total",
+                StockCode = "Total",
+                Balance = 0,
+                Price = "null",
+                ClosingPrice = 0m,
+                TotalCost = totalCost,
+                Profit = totalProfit
+            });
 
-                return sortedInfo;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error in CalculateStockInventoryAsync: {ex.Message}");
-            }
+            return sortedInfo;
         }
 
         public async Task<IEnumerable<object>> SortRealizedProfitAsync(string name, string stockCode
@@ -300,10 +301,47 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<List<Dictionary<string, string>>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode)
+        public async void SaveDividendToDatabase(List<Dividends> dividends)
         {
-            var apiUrl = _configuration["DividendSource:Url"];
-            var parameters = new Dictionary<string, string>
+            string connectionString = _configuration.GetConnectionString("StockDatabase");
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                connection.Open();
+                foreach (var dividend in dividends)
+                {
+                    var existingDividend = connection.QueryFirstOrDefault<Dividends>(
+                    @"SELECT * FROM Dividends
+                    WHERE TransactionDate = @TransactionDate
+                    AND StockCode = @StockCode
+                    AND StockName = @StockName
+                    AND TransactionName = @TransactionName
+                    AND COALESCE(PaymentDate, '1900-01-01') = COALESCE(@PaymentDate, '1900-01-01')
+                    AND TransactionId = @TransactionId",
+                    dividend);
+
+                    if (existingDividend == null)
+                    {
+                        connection.Execute(@"INSERT INTO Dividends
+                            (TransactionDate, TransactionName, StockCode, StockName, PaymentDate, DividendTradingDate, AmountCash, AmountStock, TransactionId)
+                            VALUES
+                            (@TransactionDate, @TransactionName, @StockCode, @StockName, @PaymentDate, @DividendTradingDate, @AmountCash, @AmountStock, @TransactionId)",
+                                dividend);
+                    }
+                }
+            }
+        }
+
+        public async Task<List<Dictionary<string, string>>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode, int transationId)
+        {
+            var dividenasdIdSet = await _iDividendsRepository.GetTransationIdInDividends();
+            var IsInInventory = await IsInInventoryAsync(null, stockCode);
+            var res = new List<Dictionary<string, string>>();
+            if (!dividenasdIdSet.Contains(transationId) || IsInInventory)
+            {
+                //await EnsureRateLimit();
+                var apiUrl = _configuration["DividendSource:Url"];
+                var parameters = new Dictionary<string, string>
         {
             { "dataset", "TaiwanStockDividend" },
             { "start_date", startDate.ToString("yyyy-MM-dd") },
@@ -311,24 +349,25 @@ namespace AccountingBook.Services
             { "data_id", stockCode }
         };
 
-            var response = await _httpClient.GetAsync(apiUrl + ToQueryString(parameters));
+                var response = await _httpClient.GetAsync(apiUrl + ToQueryString(parameters));
 
-            var json = await response.Content.ReadAsStringAsync();
-            var data = JsonConvert.DeserializeObject<dynamic>(json);
+                var json = await response.Content.ReadAsStringAsync();
+                var data = JsonConvert.DeserializeObject<dynamic>(json);
 
-            var res = new List<Dictionary<string, string>>();
-            foreach (var item in data["data"])
-            {
-                var dict = new Dictionary<string, string>
+                res = new List<Dictionary<string, string>>();
+                foreach (var item in data["data"])
+                {
+                    var dict = new Dictionary<string, string>
             {
                 {"CashExDividendTradingDate", item["CashExDividendTradingDate"].ToString()},
                 {"CashDividendPaymentDate", (item["CashDividendPaymentDate"]).ToString()},
                 {"Dividends", (item["CashEarningsDistribution"]+item["CashStatutorySurplus"]).ToString()},
                 {"StockEarnings", (item["StockEarningsDistribution"]*2).ToString()}
             };
-                if (!dict.ContainsValue(""))
-                {
-                    res.Add(dict);
+                    if (!dict.ContainsValue(""))
+                    {
+                        res.Add(dict);
+                    }
                 }
             }
 
@@ -365,12 +404,17 @@ namespace AccountingBook.Services
                     {
                         skipId.Add(shellInfo.TransactionId);
                     }
+
                     res.AddRange(await creatDividend(transactionDate, shellDate, stockInfo.StockCode, stockInfo, shellInfo));
                 }
                 else if (stockInfo.Deposit > 0)
                 {
                     res.AddRange(await creatDividend(transactionDate, nowDate, stockInfo.StockCode, stockInfo, shellInfo));
                 }
+            }
+            if (res.Count > 0)
+            {
+                SaveDividendToDatabase(res);
             }
 
             return res;
@@ -382,24 +426,58 @@ namespace AccountingBook.Services
             return "?" + queryString;
         }
 
+        private async Task EnsureRateLimit()
+        {
+            await _semaphore.WaitAsync();
+
+            if (DateTime.UtcNow >= _resetTime)
+            {
+                lock (_semaphore)
+                {
+                    if (DateTime.UtcNow >= _resetTime)
+                    {
+                        _semaphore.Release(100 - _semaphore.CurrentCount);
+                        _resetTime = DateTime.UtcNow.AddHours(1);
+                    }
+                }
+            }
+        }
+
         private async Task<List<Dividends>> creatDividend(DateTime startDate, DateTime endDate, string stockCode, StockTransactions stockInfo, StockTransactions shellInfo)
         {
             var res = new List<Dividends>();
-            var sortDividend = await GetDividendAsync(startDate, endDate, stockCode);
+            var sortDividend = await GetDividendAsync(startDate, endDate, stockCode, stockInfo.TransactionId);
+            if (sortDividend.Count == 0)
+            {
+                var dividend = new Dividends
+                {
+                    TransactionDate = stockInfo.TransactionDate.Date,
+                    TransactionName = stockInfo.TransactionName,
+                    StockCode = stockInfo.StockCode,
+                    StockName = stockInfo.StockName,
+                    PaymentDate = null,
+                    DividendTradingDate = null,
+                    AmountCash = 0,
+                    AmountStock = 0,
+                    TransactionId = stockInfo.TransactionId,
+                };
+                res.Add(dividend);
+            }
             if (shellInfo == null)
             {
                 foreach (var dividendInfo in sortDividend)
                 {
                     var dividend = new Dividends
                     {
-                        TransactionDate = stockInfo.TransactionDate,
+                        TransactionDate = stockInfo.TransactionDate.Date,
                         TransactionName = stockInfo.TransactionName,
                         StockCode = stockInfo.StockCode,
                         StockName = stockInfo.StockName,
-                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
-                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
+                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]).Date,
+                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]).Date,
                         AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
                         AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * stockInfo.Deposit,
+                        TransactionId = stockInfo.TransactionId,
                     };
                     res.Add(dividend);
                 }
@@ -418,6 +496,7 @@ namespace AccountingBook.Services
                         DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
                         AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
                         AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * stockInfo.Deposit,
+                        TransactionId = stockInfo.TransactionId,
                     };
                     res.Add(dividend);
                 }
@@ -436,11 +515,35 @@ namespace AccountingBook.Services
                         DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
                         AmountCash = decimal.Parse(dividendInfo["Dividends"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
                         AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
+                        TransactionId = stockInfo.TransactionId,
                     };
                     res.Add(dividend);
                 }
             }
             return res;
+        }
+
+        private async Task<bool> IsInInventoryAsync(string name, string stockCode)
+        {
+            var stockInfo = await CalculateBalanceProfit(name, stockCode);
+            var sortedInfo = stockInfo.Where(c => c.IsSell == false);
+            return sortedInfo.Count() == 0 ? false : true;
+        }
+
+        public async Task<IEnumerable<Dividends>> SortDividendAsync(string name, string stockCode, int year)
+        {
+            var dividendsInfo = await CaculateDividendAsync(name, stockCode);
+            List<Dividends> sortDividendsInfo;
+            if (year != 0)
+            {
+                sortDividendsInfo = dividendsInfo.Where(x => x.TransactionDate.DayOfYear == year)
+                                                   .OrderBy(x => x.TransactionName).ToList();
+            }
+            else
+            {
+                sortDividendsInfo = dividendsInfo.OrderBy(x => x.TransactionName).ToList();
+            }
+            return sortDividendsInfo;
         }
     }
 }

@@ -43,7 +43,7 @@ namespace AccountingBook.Controllers
         public async Task<ActionResult<IEnumerable<StockTransactions>>>
             GetAllStockInventorytions(string name, string stockCode)
         {
-            var stockInfo = await _updateStockService.SortStockInventoryAsync(name, stockCode);
+            var stockInfo = await _updateStockService.SumStockInventoryAsync(name, stockCode);
             return Ok(stockInfo);
         }
 
@@ -56,24 +56,24 @@ namespace AccountingBook.Controllers
             return Ok(stockInfo);
         }
 
-        [HttpGet("QueryDividend")]
-        public async Task<ActionResult<List<Dictionary<string, string>>>> GetDividendInfo(DateTime startDate, DateTime endDate, string stockCode)
-        {
-            var res = _updateStockService.GetDividendAsync(startDate, endDate, stockCode);
-            return await res;
-        }
-
-        //[HttpPost("RealizedDividend")]
-        //public async Task<ActionResult<Dictionary<string, string>>> GetRealizedDividend(DateTime startDate, DateTime endDate, string stockCode)
+        //[HttpGet("QueryDividend")]
+        //public async Task<ActionResult<List<Dictionary<string, string>>>> GetDividendInfo(DateTime startDate, DateTime endDate, string stockCode)
         //{
         //    var res = _updateStockService.GetDividendAsync(startDate, endDate, stockCode);
         //    return await res;
         //}
 
-        [HttpPost("TestDividend")]
+        [HttpPost("RealizedDividend")]
         public async Task<List<Dividends>> GetRealizedDividend(string name, string stockCode)
         {
             var res = _updateStockService.CaculateDividendAsync(name, stockCode);
+            return await res;
+        }
+
+        [HttpGet("SortDividend")]
+        public async Task<IEnumerable<Dividends>> GetSortDividend(string name, string stockCode, int year)
+        {
+            var res = _updateStockService.SortDividendAsync(name, stockCode, year);
             return await res;
         }
     }

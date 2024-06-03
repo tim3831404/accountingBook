@@ -34,6 +34,7 @@ namespace AccountingBook
             services.AddTransient<IUserStockService, UserStockService>();
             services.AddTransient<IStockRepository, StockRepository>();
             services.AddTransient<IStockTransactionsRepository, StockTransactionsRepository>();
+            services.AddTransient<IDividendsRepository, DividendsRepository>();
             services.AddTransient<UserRepository>();
             services.AddTransient<StockTransactionsRepository>();
             services.AddHostedService<JobManagerService>();

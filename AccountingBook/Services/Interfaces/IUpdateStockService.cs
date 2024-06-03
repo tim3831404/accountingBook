@@ -14,12 +14,14 @@ namespace AccountingBook.Services.Interfaces
 
         Task<List<StockTransactions>> CalculateBalanceProfit(string name, string stockCode);
 
-        Task<IEnumerable<object>> SortStockInventoryAsync(string name, string stockCode);
+        Task<IEnumerable<object>> SumStockInventoryAsync(string name, string stockCode);
 
         Task<IEnumerable<object>> SortRealizedProfitAsync(string name, string stockCode, DateTime startDate, DateTime endDate);
 
-        Task<List<Dictionary<string, string>>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode);
+        Task<List<Dictionary<string, string>>> GetDividendAsync(DateTime startDate, DateTime endDate, string stockCode, int transactionIds);
 
         Task<List<Dividends>> CaculateDividendAsync(string name, string stockCode);
+
+        Task<IEnumerable<Dividends>> SortDividendAsync(string name, string stockCode, int year);
     }
 }

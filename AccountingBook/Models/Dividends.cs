@@ -9,9 +9,10 @@ namespace AccountingBook.Models
         public string TransactionName { get; set; }
         public string StockCode { get; set; }
         public string StockName { get; set; }
-        public DateTime PaymentDate { get; set; }
-        public DateTime DividendTradingDate { get; set; }
+        public DateTime? PaymentDate { get; set; }
+        public DateTime? DividendTradingDate { get; set; }
         public decimal AmountCash { get; set; }
         public decimal AmountStock { get; set; }
+        public int TransactionId { get; set; }
     }
 }
