@@ -22,6 +22,6 @@ namespace AccountingBook.Services.Interfaces
 
         Task<List<Dividends>> CaculateDividendAsync(string name, string stockCode);
 
-        Task<IEnumerable<Dividends>> SortDividendAsync(string name, string stockCode, int year);
+        Task<IEnumerable<object>> SortDividendAsync(DateTime startDate, DateTime endDate);
     }
 }

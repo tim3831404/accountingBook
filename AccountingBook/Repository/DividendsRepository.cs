@@ -2,6 +2,7 @@
 using AccountingBook.Repository.Interfaces;
 using Dapper;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -24,16 +25,11 @@ namespace AccountingBook.Repository
             return new HashSet<int>(transactionIds);
         }
 
-        //public async Task<IEnumerable<Dividends>> FilterDividendsByTransIds(List<int> TransationId)
-        //{
-        //    if (TransationId == null || TransationId.Count == 0)
-        //    {
-        //        return await _dbConnection.QueryAsync<Dividends>("SELECT TOP 10000 * FROM Dividends ORDER BY TransactionDate");
-        //    }
-        //    var query = @"SELECT TOP 10000 * FROM Dividends
-        //          WHERE DividendsId NOT IN @Ids
-        //          ORDER BY TransactionDate";
-        //    return await _dbConnection.QueryAsync<Dividends>(query, new { Ids = TransationId });
-        //}
+        public async Task<List<Dividends>> FilterDividendsByPaymentDate(DateTime startDate, DateTime endDate)
+        {
+            return await _dbConnection.QueryAsync<Dividends>(
+                "SELECT * FROM Dividends WHERE PaymentDate <= @endDate AND PaymentDate >= @startDate ORDER BY StockCode",
+                new { startDate = startDate, endDate = endDate });
+        }
     }
 }

@@ -63,18 +63,18 @@ namespace AccountingBook.Controllers
         //    return await res;
         //}
 
-        [HttpPost("RealizedDividend")]
+        [HttpGet("CaculateDividend")]
         public async Task<List<Dividends>> GetRealizedDividend(string name, string stockCode)
         {
             var res = _updateStockService.CaculateDividendAsync(name, stockCode);
             return await res;
         }
 
-        [HttpGet("SortDividend")]
-        public async Task<IEnumerable<Dividends>> GetSortDividend(string name, string stockCode, int year)
+        [HttpGet("RealizedDividend")]
+        public async Task<IActionResult> GetSortDividend(DateTime startDate, DateTime endDate)
         {
-            var res = _updateStockService.SortDividendAsync(name, stockCode, year);
-            return await res;
+            var res = await _updateStockService.SortDividendAsync(startDate, endDate);
+            return Ok(res);
         }
     }
 }

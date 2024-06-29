@@ -3,7 +3,9 @@ using AccountingBook.Repository;
 using AccountingBook.Repository.Interfaces;
 using AccountingBook.Services.Interfaces;
 using Dapper;
+using Google.Apis.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -194,113 +196,6 @@ namespace AccountingBook.Services
             }
         }
 
-        public async Task<IEnumerable<object>> SumStockInventoryAsync(string name, string stockCode)
-        {
-            var stockInfo = await CalculateBalanceProfit(name, stockCode);
-            var sortedInfo = stockInfo.Where(c => c.IsSell == false)
-                                          .GroupBy(s => new { s.StockCode, s.TransactionName })
-                                          .Select(g => new
-                                          {
-                                              StockCode = g.Key,
-                                              StockName = g.First().StockName,
-                                              TransactionName = g.First().TransactionName,
-                                              Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
-                                              Fee = (int)g.Sum(s => s.Fee),
-                                              Balance = (int)stockInfo.Where(c => c.StockCode == g.Key.StockCode &&
-                                                                                  c.TransactionName == g.Key.TransactionName)
-                                                        .OrderByDescending(c => c.TransactionDate)
-                                                        .FirstOrDefault().Balance,
-                                          })
-                                          .Select(s => new
-                                          {
-                                              s.TransactionName,
-                                              s.StockName,
-                                              s.StockCode.StockCode,
-                                              s.Balance,
-                                              Price = ((double)s.Cost / s.Balance).ToString("N2"),
-                                              ClosingPrice = UpdateColesingkPricesAsync(s.StockCode.StockCode)
-                                                            .Result,
-                                              TotalCost = s.Cost + s.Fee,
-                                              Profit = UpdateColesingkPricesAsync(s.StockCode.StockCode).Result *
-                                                       s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
-                                          })
-                                          .ToList();
-            var totalProfit = sortedInfo.Sum(s => s.Profit);
-            var totalCost = sortedInfo.Sum(s => s.TotalCost);
-            sortedInfo.Add(new
-            {
-                TransactionName = "Total",
-                StockName = "Total",
-                StockCode = "Total",
-                Balance = 0,
-                Price = "null",
-                ClosingPrice = 0m,
-                TotalCost = totalCost,
-                Profit = totalProfit
-            });
-
-            return sortedInfo;
-        }
-
-        public async Task<IEnumerable<object>> SortRealizedProfitAsync(string name, string stockCode
-                                                                       , DateTime startDate, DateTime endDate)
-        {
-            try
-            {
-                var stockInfo = await CalculateBalanceProfit(name, stockCode);
-                var sortedInfo = stockInfo.Where(c =>
-                                                c.IsSell == true &&
-                                                c.Withdrawal == 0)
-                                         .GroupBy(s => new { s.StockCode, s.TransactionName })
-                                         .Select(g => new
-                                         {
-                                             TransactionName = g.Key.TransactionName,
-                                             StockCode = g.Key.StockCode,
-                                             StockName = g.First().StockName,
-                                             Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
-                                             Fee = (int)g.Sum(s => s.Fee),
-                                             Balance = (int)g.Max(s => s.Balance),
-                                         })
-                                          .Select(s => new
-                                          {
-                                              s.TransactionName,
-                                              s.StockName,
-                                              s.StockCode,
-                                              s.Balance,
-                                              buyPrice = ((double)s.Cost / s.Balance).ToString("N2"),
-                                              TotalCost = s.Cost + s.Fee,
-                                              Profit =
-                                              stockInfo.Where(c => c.TransactionDate >= startDate &&
-                                                c.TransactionDate <= endDate &&
-                                                c.IsSell == true &&
-                                                c.Withdrawal != 0 &&
-                                                c.StockCode == s.StockCode &&
-                                                c.TransactionName == s.TransactionName)
-                                                 .Sum(a => a.Profit),
-                                          })
-                                          .Where(c => c.Profit != 0)
-                                          .ToList();
-
-                var totalCost = sortedInfo.Sum(s => s.TotalCost);
-                var totalProfit = sortedInfo.Sum(s => s.Profit);
-                sortedInfo.Add(new
-                {
-                    TransactionName = "Total",
-                    StockName = "Total",
-                    StockCode = "Total",
-                    Balance = 0,
-                    buyPrice = "null",
-                    TotalCost = totalCost,
-                    Profit = (int?)totalProfit
-                });
-                return sortedInfo;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error in CalculateStockInventoryAsync: {ex.Message}");
-            }
-        }
-
         public async void SaveDividendToDatabase(List<Dividends> dividends)
         {
             string connectionString = _configuration.GetConnectionString("StockDatabase");
@@ -339,7 +234,7 @@ namespace AccountingBook.Services
             var res = new List<Dictionary<string, string>>();
             if (!dividenasdIdSet.Contains(transationId) || IsInInventory)
             {
-                //await EnsureRateLimit();
+                await EnsureRateLimit();
                 var apiUrl = _configuration["DividendSource:Url"];
                 var parameters = new Dictionary<string, string>
         {
@@ -420,6 +315,176 @@ namespace AccountingBook.Services
             return res;
         }
 
+        public async Task<IEnumerable<object>> SumStockInventoryAsync(string name, string stockCode)
+        {
+            var stockInfo = await CalculateBalanceProfit(name, stockCode);
+            var sortedInfo = stockInfo.Where(c => c.IsSell == false)
+                                          .GroupBy(s => new { s.StockCode, s.TransactionName })
+                                          .Select(g => new
+                                          {
+                                              StockCode = g.Key,
+                                              StockName = g.First().StockName,
+                                              TransactionName = g.First().TransactionName,
+                                              Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
+                                              Fee = (int)g.Sum(s => s.Fee),
+                                              Balance = (int)stockInfo.Where(c => c.StockCode == g.Key.StockCode &&
+                                                                                  c.TransactionName == g.Key.TransactionName)
+                                                        .OrderByDescending(c => c.TransactionDate)
+                                                        .FirstOrDefault().Balance,
+                                          })
+                                          .Select(s => new
+                                          {
+                                              s.TransactionName,
+                                              s.StockName,
+                                              s.StockCode.StockCode,
+                                              s.Balance,
+                                              Price = ((double)s.Cost / s.Balance).ToString("N2"),
+                                              ClosingPrice = UpdateColesingkPricesAsync(s.StockCode.StockCode)
+                                                            .Result,
+                                              TotalCost = s.Cost + s.Fee,
+                                              Profit = UpdateColesingkPricesAsync(s.StockCode.StockCode).Result *
+                                                       s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
+                                          })
+                                          .ToList();
+            //var sortedInfo = stockInfo.Where(c => c.IsSell == false)
+            //                              .GroupBy(s => new { s.StockCode, s.TransactionName })
+            //                              .Select(g => new
+            //                              {
+            //                                  StockCode = g.Key,
+            //                                  StockName = g.First().StockName,
+            //                                  TransactionName = g.First().TransactionName,
+            //                                  Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
+            //                                  Fee = (int)g.Sum(s => s.Fee),
+            //                                  Balance = (int)stockInfo.Where(c => c.StockCode == g.Key.StockCode &&
+            //                                                                      c.TransactionName == g.Key.TransactionName)
+            //                                            .OrderByDescending(c => c.TransactionDate)
+            //                                            .FirstOrDefault().Balance,
+            //                              })
+            //                              .Select(s => new
+            //                              {
+            //                                  s.TransactionName,
+            //                                  s.StockName,
+            //                                  s.StockCode.StockCode,
+            //                                  s.Balance,
+            //                                  Price = ((double)s.Cost / s.Balance).ToString("N2"),
+            //                                  ClosingPrice = UpdateColesingkPricesAsync(s.StockCode.StockCode)
+            //                                                .Result,
+            //                                  TotalCost = s.Cost + s.Fee,
+            //                                  Profit = UpdateColesingkPricesAsync(s.StockCode.StockCode).Result *
+            //                                           s.Balance - (int)((s.Cost + s.Fee) * 1.001425 + s.Fee),
+            //                              })
+            //                              .ToList();
+            var totalProfit = sortedInfo.Sum(s => s.Profit);
+            var totalCost = sortedInfo.Sum(s => s.TotalCost);
+            sortedInfo.Add(new
+            {
+                TransactionName = "Total",
+                StockName = "Total",
+                StockCode = "Total",
+                Balance = 0,
+                Price = "null",
+                ClosingPrice = 0m,
+                TotalCost = totalCost,
+                Profit = totalProfit
+            });
+
+            return sortedInfo;
+        }
+
+        public async Task<IEnumerable<object>> SortRealizedProfitAsync(string name, string stockCode
+                                                                       , DateTime startDate, DateTime endDate)
+        {
+            try
+            {
+                var stockInfo = await CalculateBalanceProfit(name, stockCode);
+                var sortedInfo = stockInfo.Where(c =>
+                                                c.IsSell == true &&
+                                                c.Withdrawal == 0)
+                                         .GroupBy(s => new { s.StockCode, s.TransactionName })
+                                         .Select(g => new
+                                         {
+                                             TransactionName = g.Key.TransactionName,
+                                             StockCode = g.Key.StockCode,
+                                             StockName = g.First().StockName,
+                                             Cost = (int)g.Sum(s => s.PurchasingPrice * s.Deposit),
+                                             Fee = (int)g.Sum(s => s.Fee),
+                                             Balance = (int)g.Max(s => s.Balance),
+                                         })
+                                          .Select(s => new
+                                          {
+                                              s.TransactionName,
+                                              s.StockName,
+                                              s.StockCode,
+                                              s.Balance,
+                                              buyPrice = ((double)s.Cost / s.Balance).ToString("N2"),
+                                              TotalCost = s.Cost + s.Fee,
+                                              Profit =
+                                              stockInfo.Where(c => c.TransactionDate >= startDate &&
+                                                c.TransactionDate <= endDate &&
+                                                c.IsSell == true &&
+                                                c.Withdrawal != 0 &&
+                                                c.StockCode == s.StockCode &&
+                                                c.TransactionName == s.TransactionName)
+                                                 .Sum(a => a.Profit),
+                                          })
+                                          .Where(c => c.Profit != 0)
+                                          .ToList();
+
+                var totalCost = sortedInfo.Sum(s => s.TotalCost);
+                var totalProfit = sortedInfo.Sum(s => s.Profit);
+                sortedInfo.Add(new
+                {
+                    TransactionName = "Total",
+                    StockName = "Total",
+                    StockCode = "Total",
+                    Balance = 0,
+                    buyPrice = "null",
+                    TotalCost = totalCost,
+                    Profit = (int?)totalProfit
+                });
+                return sortedInfo;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error in CalculateStockInventoryAsync: {ex.Message}");
+            }
+        }
+
+        public async Task<IEnumerable<object>> SortDividendAsync(DateTime startDate, DateTime endDate)
+        {
+            var dividendsInfo = await _iDividendsRepository.FilterDividendsByPaymentDate(startDate, endDate);
+            var sortedDividendsInfo = dividendsInfo.GroupBy(s => new { s.StockCode, s.TransactionName })
+                                          .Select(g => new
+                                          {
+                                              GroupInfo = g.Key,
+                                              StockName = g.First().StockName,
+                                              TransactionName = g.First().TransactionName,
+                                              AmountCash = (int)g.Sum(s => s.AmountCash),
+                                              AmountStock = (int)g.Sum(s => s.AmountStock),
+                                          })
+                                          .Select(s => new
+                                          {
+                                              TransactionName = s.GroupInfo.TransactionName,
+                                              StockName = s.StockName,
+                                              StockCode = s.GroupInfo.StockCode,
+                                              AmountCash = s.AmountCash,
+                                              AmountStock = s.AmountStock,
+                                          }
+                                          ).ToList();
+            var totalAmountCash = sortedDividendsInfo.Sum(s => s.AmountCash);
+            var totalAmountStock = sortedDividendsInfo.Sum(s => s.AmountStock);
+            sortedDividendsInfo.Add(new
+            {
+                TransactionName = "Total",
+                StockName = "Total",
+                StockCode = "Total",
+                AmountCash = totalAmountCash,
+                AmountStock = totalAmountStock,
+            });
+
+            return sortedDividendsInfo;
+        }
+
         private string ToQueryString(Dictionary<string, string> parameters)
         {
             var queryString = string.Join("&", parameters.Select(kvp => $"{kvp.Key}={kvp.Value}"));
@@ -449,75 +514,126 @@ namespace AccountingBook.Services
             var sortDividend = await GetDividendAsync(startDate, endDate, stockCode, stockInfo.TransactionId);
             if (sortDividend.Count == 0)
             {
-                var dividend = new Dividends
-                {
-                    TransactionDate = stockInfo.TransactionDate.Date,
-                    TransactionName = stockInfo.TransactionName,
-                    StockCode = stockInfo.StockCode,
-                    StockName = stockInfo.StockName,
-                    PaymentDate = null,
-                    DividendTradingDate = null,
-                    AmountCash = 0,
-                    AmountStock = 0,
-                    TransactionId = stockInfo.TransactionId,
-                };
+               
+                var dividend = new Dividends();
+                dividend.copy(stockInfo);
                 res.Add(dividend);
             }
             if (shellInfo == null)
             {
                 foreach (var dividendInfo in sortDividend)
                 {
+                    var dividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]).Date;
                     var dividend = new Dividends
                     {
                         TransactionDate = stockInfo.TransactionDate.Date,
                         TransactionName = stockInfo.TransactionName,
                         StockCode = stockInfo.StockCode,
                         StockName = stockInfo.StockName,
-                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]).Date,
-                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]).Date,
-                        AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
-                        AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * stockInfo.Deposit,
+                        PaymentDate = null,
+                        DividendTradingDate = null,
+                        AmountCash = 0,
+                        AmountStock = 0,
                         TransactionId = stockInfo.TransactionId,
                     };
-                    res.Add(dividend);
+                    if (dividendTradingDate == stockInfo.TransactionDate.Date)
+                    {
+                        res.Add(dividend);
+                    }
+                    else
+                    {
+                        dividend = new Dividends
+                        {
+                            TransactionDate = stockInfo.TransactionDate.Date,
+                            TransactionName = stockInfo.TransactionName,
+                            StockCode = stockInfo.StockCode,
+                            StockName = stockInfo.StockName,
+                            PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]).Date,
+                            DividendTradingDate = dividendTradingDate,
+                            AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
+                            AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * (stockInfo.Deposit / 10),
+                            TransactionId = stockInfo.TransactionId,
+                        };
+                        res.Add(dividend);
+                    }
                 }
             }
             else if ((stockInfo.Deposit <= shellInfo.Withdrawal))
             {
                 foreach (var dividendInfo in sortDividend)
                 {
+                    var dividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]).Date;
                     var dividend = new Dividends
                     {
-                        TransactionDate = stockInfo.TransactionDate,
+                        TransactionDate = stockInfo.TransactionDate.Date,
                         TransactionName = stockInfo.TransactionName,
                         StockCode = stockInfo.StockCode,
                         StockName = stockInfo.StockName,
-                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
-                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
-                        AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
-                        AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * stockInfo.Deposit,
+                        PaymentDate = null,
+                        DividendTradingDate = null,
+                        AmountCash = 0,
+                        AmountStock = 0,
                         TransactionId = stockInfo.TransactionId,
                     };
-                    res.Add(dividend);
+                    if (dividendTradingDate == stockInfo.TransactionDate.Date)
+                    {
+                        res.Add(dividend);
+                    }
+                    else
+                    {
+                        dividend = new Dividends
+                        {
+                            TransactionDate = stockInfo.TransactionDate,
+                            TransactionName = stockInfo.TransactionName,
+                            StockCode = stockInfo.StockCode,
+                            StockName = stockInfo.StockName,
+                            PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
+                            DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
+                            AmountCash = decimal.Parse(dividendInfo["Dividends"]) * stockInfo.Deposit,
+                            AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * (stockInfo.Deposit / 10),
+                            TransactionId = stockInfo.TransactionId,
+                        };
+                        res.Add(dividend);
+                    }
                 }
             }
             else
             {
                 foreach (var dividendInfo in sortDividend)
                 {
+                    var dividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]).Date;
                     var dividend = new Dividends
                     {
-                        TransactionDate = stockInfo.TransactionDate,
+                        TransactionDate = stockInfo.TransactionDate.Date,
                         TransactionName = stockInfo.TransactionName,
                         StockCode = stockInfo.StockCode,
                         StockName = stockInfo.StockName,
-                        PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
-                        DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
-                        AmountCash = decimal.Parse(dividendInfo["Dividends"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
-                        AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
+                        PaymentDate = null,
+                        DividendTradingDate = null,
+                        AmountCash = 0,
+                        AmountStock = 0,
                         TransactionId = stockInfo.TransactionId,
                     };
-                    res.Add(dividend);
+                    if (dividendTradingDate == stockInfo.TransactionDate.Date)
+                    {
+                        res.Add(dividend);
+                    }
+                    else
+                    {
+                        dividend = new Dividends
+                        {
+                            TransactionDate = stockInfo.TransactionDate,
+                            TransactionName = stockInfo.TransactionName,
+                            StockCode = stockInfo.StockCode,
+                            StockName = stockInfo.StockName,
+                            PaymentDate = DateTime.Parse(dividendInfo["CashDividendPaymentDate"]),
+                            DividendTradingDate = DateTime.Parse(dividendInfo["CashExDividendTradingDate"]),
+                            AmountCash = decimal.Parse(dividendInfo["Dividends"]) * (stockInfo.Deposit - shellInfo.Withdrawal),
+                            AmountStock = decimal.Parse(dividendInfo["StockEarnings"]) * ((stockInfo.Deposit - shellInfo.Withdrawal) / 10),
+                            TransactionId = stockInfo.TransactionId,
+                        };
+                        res.Add(dividend);
+                    }
                 }
             }
             return res;
@@ -528,22 +644,6 @@ namespace AccountingBook.Services
             var stockInfo = await CalculateBalanceProfit(name, stockCode);
             var sortedInfo = stockInfo.Where(c => c.IsSell == false);
             return sortedInfo.Count() == 0 ? false : true;
-        }
-
-        public async Task<IEnumerable<Dividends>> SortDividendAsync(string name, string stockCode, int year)
-        {
-            var dividendsInfo = await CaculateDividendAsync(name, stockCode);
-            List<Dividends> sortDividendsInfo;
-            if (year != 0)
-            {
-                sortDividendsInfo = dividendsInfo.Where(x => x.TransactionDate.DayOfYear == year)
-                                                   .OrderBy(x => x.TransactionName).ToList();
-            }
-            else
-            {
-                sortDividendsInfo = dividendsInfo.OrderBy(x => x.TransactionName).ToList();
-            }
-            return sortDividendsInfo;
         }
     }
 }

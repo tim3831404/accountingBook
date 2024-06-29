@@ -86,13 +86,13 @@ namespace AccountingBook.Repository
             if (userName == null)
             {
                 return await _dbConnection.QueryAsync<StockTransactions>(
-                    "SELECT * FROM StockTransactions WHERE TransactionDate >= @StartDate AND TransactionDate <= @EndDate",
+                    "SELECT * FROM StockTransactions WHERE TransactionDate >= @startDate AND TransactionDate <= @endDate",
                     new { startDate = startDate, endDate = endDate });
             }
             else
             {
                 return await _dbConnection.QueryAsync<StockTransactions>(
-                    "SELECT * FROM StockTransactions WHERE TransactionDate >= @StartDate AND TransactionDate <= @EndDate AND UserName = @userName",
+                    "SELECT * FROM StockTransactions WHERE TransactionDate >= @startDate AND TransactionDate <= @endDate AND UserName = @userName",
                     new { startDate = startDate, endDate = endDate, userName = userName });
             }
         }
